@@ -66,6 +66,11 @@ async function handleRequest(request, env) {
   const pathParts = path.split('/').filter(part => part);
   const pathToken = pathParts.length > 0 ? pathParts[0] : null;
   
+  console.log('请求路径:', path);
+  console.log('路径部分:', pathParts);
+  console.log('路径令牌:', pathToken);
+  console.log('查询参数:', Object.fromEntries(params.entries()));
+  
   // 如果是根路径，返回Nginx默认页面
   if (path === '/' || path === '') {
     // 如果有查询参数token并且token正确，显示转换工具
@@ -101,6 +106,12 @@ async function handleRequest(request, env) {
     const subUrl = params.get('url');
     const config = params.get('config');
     const backendUrlParam = params.get('backend');
+    
+    console.log('处理订阅请求:');
+    console.log('- 目标格式:', target);
+    console.log('- 订阅URL:', subUrl);
+    console.log('- 配置文件:', config);
+    console.log('- 后端URL:', backendUrlParam || DEFAULT_BACKEND);
     
     // 验证必要参数
     if (!target || !subUrl) {
@@ -143,6 +154,10 @@ async function handleRequest(request, env) {
       // 获取原始响应
       const originalResponse = new Response(response.body, response);
       
+      // 获取内容类型
+      const contentType = response.headers.get('Content-Type') || 'text/plain';
+      console.log('后端返回的内容类型:', contentType);
+      
       // 创建新的响应对象，添加自定义头
       const newResponse = new Response(originalResponse.body, {
         status: originalResponse.status,
@@ -157,6 +172,18 @@ async function handleRequest(request, env) {
       
       // 添加缓存控制
       newResponse.headers.set('Cache-Control', 'public, max-age=600');
+      
+      // 确保Content-Type正确设置
+      if (!newResponse.headers.has('Content-Type')) {
+        newResponse.headers.set('Content-Type', contentType);
+      }
+      
+      // 根据目标格式设置正确的Content-Type
+      if (target === 'clash' || target === 'clashr') {
+        newResponse.headers.set('Content-Type', 'text/yaml; charset=utf-8');
+      } else if (target === 'surge' || target.startsWith('surge&ver=')) {
+        newResponse.headers.set('Content-Type', 'text/plain; charset=utf-8');
+      }
       
       return newResponse;
     } catch (error) {
@@ -219,6 +246,10 @@ async function handleRequest(request, env) {
       // 获取原始响应
       const originalResponse = new Response(response.body, response);
       
+      // 获取内容类型
+      const contentType = response.headers.get('Content-Type') || 'text/plain';
+      console.log('后端返回的内容类型:', contentType);
+      
       // 创建新的响应对象，添加自定义头
       const newResponse = new Response(originalResponse.body, {
         status: originalResponse.status,
@@ -233,6 +264,18 @@ async function handleRequest(request, env) {
       
       // 添加缓存控制
       newResponse.headers.set('Cache-Control', 'public, max-age=600');
+      
+      // 确保Content-Type正确设置
+      if (!newResponse.headers.has('Content-Type')) {
+        newResponse.headers.set('Content-Type', contentType);
+      }
+      
+      // 根据目标格式设置正确的Content-Type
+      if (target === 'clash' || target === 'clashr') {
+        newResponse.headers.set('Content-Type', 'text/yaml; charset=utf-8');
+      } else if (target === 'surge' || target.startsWith('surge&ver=')) {
+        newResponse.headers.set('Content-Type', 'text/plain; charset=utf-8');
+      }
       
       return newResponse;
     } catch (error) {
@@ -403,9 +446,10 @@ function generateHtmlContent(accessToken) {
         </div>
         <div class="mt-3 alert alert-info">
           <strong>使用说明：</strong>
-          <p>1. 生成的链接可直接添加到代理客户端中作为订阅链接</p>
-          <p>2. 链接会直接返回转换后的订阅内容，无需再次访问网页</p>
-          <p>3. 如果您的客户端无法正常使用，请尝试不同的目标格式</p>
+          <p>1. 生成的链接可<strong>直接</strong>添加到代理客户端中作为订阅链接</p>
+          <p>2. 链接格式为: <code>https://example.com/sub?target=clash&url=订阅地址&token=访问令牌</code></p>
+          <p>3. 必须包含参数: <code>target</code>(目标格式)、<code>url</code>(订阅地址)和<code>token</code>(访问令牌)</p>
+          <p>4. 如果客户端无法正常使用，请尝试不同的目标格式</p>
         </div>
       </div>
       
@@ -424,6 +468,9 @@ function generateHtmlContent(accessToken) {
     
     // 获取当前路径（用于生成链接）
     const currentPath = window.location.pathname;
+    
+    // 存储访问令牌
+    const accessToken = '${accessToken}';
     
     // 初始化页面
     document.addEventListener('DOMContentLoaded', function() {
@@ -463,15 +510,15 @@ function generateHtmlContent(accessToken) {
         const emoji = document.getElementById('emoji').checked;
         const newName = document.getElementById('newName').checked;
         
-        // 构建转换URL - 修复直接访问订阅内容而非页面的问题
+        // 构建转换URL - 使用新的直接路由
         let origin = window.location.origin;
         
-        // 提取当前路径中的token (如果是/token格式访问的)
-        const pathParts = currentPath.split('/').filter(part => part);
-        const pathToken = pathParts.length > 0 ? pathParts[0] : '';
+        // 直接使用/sub路径，添加token参数
+        let convertUrl = origin + '/sub?target=' + encodeURIComponent(target) + 
+                         '&url=' + encodeURIComponent(subUrl) + 
+                         '&token=' + encodeURIComponent(accessToken);
         
-        // 构建正确的订阅URL
-        let convertUrl = origin + '/' + pathToken + '/sub?target=' + encodeURIComponent(target) + '&url=' + encodeURIComponent(subUrl);
+        console.log('生成的订阅URL:', convertUrl);
         
         if (config) {
           convertUrl += '&config=' + encodeURIComponent(config);
@@ -491,6 +538,11 @@ function generateHtmlContent(accessToken) {
         
         document.getElementById('resultUrl').textContent = convertUrl;
         document.getElementById('result').style.display = 'block';
+        
+        // 验证生成的URL是否包含必要参数
+        if (!convertUrl.includes('target=') || !convertUrl.includes('url=')) {
+          alert('警告：生成的URL缺少必要参数，请检查！');
+        }
       });
       
       // 复制链接
@@ -541,6 +593,80 @@ export default {
     // 处理OPTIONS请求
     if (request.method === 'OPTIONS') {
       return handleOptions(request);
+    }
+    
+    // 获取URL和路径信息
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const params = url.searchParams;
+    
+    // 检查是否是直接的订阅请求
+    // 格式: /sub?target=xxx&url=xxx&token=xxx
+    if (path === '/sub' && params.has('target') && params.has('url')) {
+      const ACCESS_TOKEN = env && env.ACCESS_TOKEN ? env.ACCESS_TOKEN : '';
+      const reqToken = params.get('token');
+      
+      // 如果设置了访问令牌，则验证令牌
+      if (ACCESS_TOKEN && reqToken !== ACCESS_TOKEN) {
+        return new Response('访问令牌无效或缺失', { status: 403 });
+      }
+      
+      // 获取参数
+      const target = params.get('target');
+      const subUrl = params.get('url');
+      const config = params.get('config');
+      const backendUrlParam = params.get('backend');
+      
+      // 验证目标格式
+      if (!ALLOWED_TARGETS.includes(target) && !target.startsWith('surge&ver=')) {
+        return new Response('不支持的目标格式', { status: 400 });
+      }
+      
+      // 确定后端URL
+      const backendBaseUrl = backendUrlParam || DEFAULT_BACKEND;
+      
+      // 构建后端请求URL
+      const backendUrl = new URL('/sub', backendBaseUrl);
+      
+      // 复制所有参数，但排除backend和token
+      for (const [key, value] of params.entries()) {
+        if (key !== 'backend' && key !== 'token') {
+          backendUrl.searchParams.append(key, value);
+        }
+      }
+      
+      try {
+        // 发送请求到后端
+        const response = await fetch(backendUrl.toString(), {
+          headers: {
+            'User-Agent': request.headers.get('User-Agent') || 'SubConverter-Worker',
+          },
+        });
+        
+        // 如果后端返回错误
+        if (!response.ok) {
+          return new Response(`后端服务错误: ${response.status} ${response.statusText}`, { 
+            status: response.status 
+          });
+        }
+        
+        // 获取响应内容
+        const responseData = await response.arrayBuffer();
+        
+        // 创建新的响应对象
+        const newResponse = new Response(responseData, {
+          status: 200,
+          headers: {
+            'Content-Type': target.includes('clash') ? 'text/yaml; charset=utf-8' : 'text/plain; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=600'
+          }
+        });
+        
+        return newResponse;
+      } catch (error) {
+        return new Response(`请求处理错误: ${error.message}`, { status: 500 });
+      }
     }
     
     // 处理GET请求
