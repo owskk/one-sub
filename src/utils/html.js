@@ -137,8 +137,10 @@ export function generateAdminPage(subscriptions, adminUrl) {
         <div class="card">
           <h3>订阅源 ${index + 1}</h3>
           <p>类型: 订阅链接</p>
-          <p>URL: ${source.url}</p>
+          <p>URL: <span class="subscription-url">${source.url}</span></p>
+          ${source.addedAt ? `<p>添加时间: ${new Date(source.addedAt).toLocaleString()}</p>` : ''}
           <p>
+            <button class="btn" onclick="testSource('url', '${source.url.replace(/'/g, "\\'")}')">测试</button>
             <button class="btn" onclick="deleteSource(${index})">删除</button>
           </p>
         </div>
@@ -148,7 +150,8 @@ export function generateAdminPage(subscriptions, adminUrl) {
         <div class="card">
           <h3>订阅源 ${index + 1}</h3>
           <p>类型: 直接节点</p>
-          <p>内容: ${source.content}</p>
+          <p>内容: <span class="subscription-url">${source.content}</span></p>
+          ${source.addedAt ? `<p>添加时间: ${new Date(source.addedAt).toLocaleString()}</p>` : ''}
           <p>
             <button class="btn" onclick="deleteSource(${index})">删除</button>
           </p>
@@ -161,29 +164,247 @@ export function generateAdminPage(subscriptions, adminUrl) {
   return generateHtml('订阅管理', `
     <h1>订阅管理</h1>
     
+    <div id="notification" class="notification" style="display: none;"></div>
+    
     <h2>添加订阅源</h2>
-    <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('url')">订阅链接</div>
+      <div class="tab" onclick="switchTab('node')">直接节点</div>
+    </div>
+    
+    <div id="url-tab" class="tab-content active card">
       <h3>添加订阅链接</h3>
       <input type="text" id="subscriptionUrl" placeholder="订阅链接URL">
-      <button class="btn" onclick="addSubscriptionUrl()">添加</button>
-      
+      <div class="button-group">
+        <button class="btn" onclick="testSubscriptionUrl()">测试</button>
+        <button class="btn primary" onclick="addSubscriptionUrl()">添加</button>
+      </div>
+    </div>
+    
+    <div id="node-tab" class="tab-content card">
       <h3>添加直接节点</h3>
       <textarea id="nodeContent" placeholder="节点内容"></textarea>
-      <button class="btn" onclick="addNodeContent()">添加</button>
+      <button class="btn primary" onclick="addNodeContent()">添加</button>
     </div>
     
-    <h2>现有订阅源</h2>
+    <h2>现有订阅源 <span class="count">(${subscriptions.sources.length})</span></h2>
     <div id="sourcesList">
-      ${sourcesList}
+      ${sourcesList.length > 0 ? sourcesList : '<p class="empty-message">暂无订阅源，请添加</p>'}
     </div>
+    
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+      <div class="spinner"></div>
+      <div class="loading-text">处理中...</div>
+    </div>
+    
+    <style>
+      .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .btn.primary {
+        background-color: #28a745;
+      }
+      .btn.primary:hover {
+        background-color: #218838;
+      }
+      .tabs {
+        display: flex;
+        margin-bottom: 15px;
+      }
+      .tab {
+        flex: 1;
+        text-align: center;
+        padding: 10px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+      .tab.active {
+        border-bottom: 2px solid #0056b3;
+        font-weight: bold;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .notification {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+      .notification.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .notification.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .notification.info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+      }
+      .empty-message {
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+      }
+      .count {
+        font-size: 16px;
+        color: #6c757d;
+        font-weight: normal;
+      }
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 4px solid #fff;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+      .loading-text {
+        color: white;
+        margin-top: 10px;
+        font-size: 18px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
     
     <script>
+      function showNotification(message, type = 'info') {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = 'notification ' + type;
+        notification.style.display = 'block';
+        
+        // 5秒后自动隐藏
+        setTimeout(() => {
+          notification.style.display = 'none';
+        }, 5000);
+      }
+      
+      function showLoading() {
+        document.getElementById('loading-overlay').style.display = 'flex';
+      }
+      
+      function hideLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+      }
+      
+      function switchTab(tabName) {
+        // 隐藏所有标签内容
+        document.querySelectorAll('.tab-content').forEach(tab => {
+          tab.classList.remove('active');
+        });
+        
+        // 取消所有标签的激活状态
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.classList.remove('active');
+        });
+        
+        // 激活选中的标签和内容
+        document.getElementById(tabName + '-tab').classList.add('active');
+        document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+      }
+      
+      function testSubscriptionUrl() {
+        const url = document.getElementById('subscriptionUrl').value.trim();
+        if (!url) {
+          showNotification('请输入有效的订阅链接', 'error');
+          return;
+        }
+        
+        showLoading();
+        
+        fetch('${adminUrl}&action=testSource', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'url',
+            url: url
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          hideLoading();
+          if (data.success) {
+            showNotification(`测试成功，共有 ${data.nodeCount} 个节点`, 'success');
+          } else {
+            showNotification('测试失败: ' + data.error, 'error');
+          }
+        })
+        .catch(error => {
+          hideLoading();
+          showNotification('请求失败: ' + error, 'error');
+        });
+      }
+      
+      function testSource(type, url) {
+        if (type !== 'url') {
+          showNotification('只能测试URL类型的订阅源', 'error');
+          return;
+        }
+        
+        showLoading();
+        
+        fetch('${adminUrl}&action=testSource', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'url',
+            url: url
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          hideLoading();
+          if (data.success) {
+            showNotification(`测试成功，共有 ${data.nodeCount} 个节点`, 'success');
+          } else {
+            showNotification('测试失败: ' + data.error, 'error');
+          }
+        })
+        .catch(error => {
+          hideLoading();
+          showNotification('请求失败: ' + error, 'error');
+        });
+      }
+      
       function addSubscriptionUrl() {
         const url = document.getElementById('subscriptionUrl').value.trim();
         if (!url) {
-          alert('请输入有效的订阅链接');
+          showNotification('请输入有效的订阅链接', 'error');
           return;
         }
+        
+        showLoading();
         
         fetch('${adminUrl}&action=addSource', {
           method: 'POST',
@@ -197,24 +418,28 @@ export function generateAdminPage(subscriptions, adminUrl) {
         })
         .then(response => response.json())
         .then(data => {
+          hideLoading();
           if (data.success) {
-            alert('添加成功');
+            showNotification('添加成功', 'success');
             location.reload();
           } else {
-            alert('添加失败: ' + data.error);
+            showNotification('添加失败: ' + data.error, 'error');
           }
         })
         .catch(error => {
-          alert('请求失败: ' + error);
+          hideLoading();
+          showNotification('请求失败: ' + error, 'error');
         });
       }
       
       function addNodeContent() {
         const content = document.getElementById('nodeContent').value.trim();
         if (!content) {
-          alert('请输入节点内容');
+          showNotification('请输入节点内容', 'error');
           return;
         }
+        
+        showLoading();
         
         fetch('${adminUrl}&action=addSource', {
           method: 'POST',
@@ -228,20 +453,24 @@ export function generateAdminPage(subscriptions, adminUrl) {
         })
         .then(response => response.json())
         .then(data => {
+          hideLoading();
           if (data.success) {
-            alert('添加成功');
+            showNotification('添加成功', 'success');
             location.reload();
           } else {
-            alert('添加失败: ' + data.error);
+            showNotification('添加失败: ' + data.error, 'error');
           }
         })
         .catch(error => {
-          alert('请求失败: ' + error);
+          hideLoading();
+          showNotification('请求失败: ' + error, 'error');
         });
       }
       
       function deleteSource(index) {
         if (confirm('确定要删除这个订阅源吗？')) {
+          showLoading();
+          
           fetch('${adminUrl}&action=deleteSource', {
             method: 'POST',
             headers: {
@@ -253,15 +482,17 @@ export function generateAdminPage(subscriptions, adminUrl) {
           })
           .then(response => response.json())
           .then(data => {
+            hideLoading();
             if (data.success) {
-              alert('删除成功');
+              showNotification('删除成功', 'success');
               location.reload();
             } else {
-              alert('删除失败: ' + data.error);
+              showNotification('删除失败: ' + data.error, 'error');
             }
           })
           .catch(error => {
-            alert('请求失败: ' + error);
+            hideLoading();
+            showNotification('请求失败: ' + error, 'error');
           });
         }
       }
