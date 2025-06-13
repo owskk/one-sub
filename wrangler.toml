@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2023-08-01"
 
 kv_namespaces = [
-  { binding = "SUBSCRIPTIONS", id = "SUBSCRIPTIONS_ID", preview_id = "SUBSCRIPTIONS_PREVIEW_ID" }
+  { binding = "SUBSCRIPTIONS", id = "", preview_id = "" }
 ]
 
 [vars]
