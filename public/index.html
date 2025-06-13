@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Atlas-Sub 订阅转换</title>
+  <title>One-Sub 订阅转换</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -95,48 +95,48 @@
 </head>
 <body>
   <div class="container">
-    <h1>Atlas-Sub 订阅转换</h1>
+    <h1>One-Sub 订阅转换</h1>
     <p>一个强大的订阅聚合与转换服务，基于Cloudflare Workers。</p>
-    
+
     <div class="feature-list">
       <div class="feature-item">
         <h3>订阅聚合</h3>
         <p>汇总多个订阅源，包括直接节点链接和订阅链接。</p>
         <p>支持自建节点和第三方订阅链接的混合使用。</p>
       </div>
-      
+
       <div class="feature-item">
         <h3>订阅转换</h3>
         <p>使用在线订阅转换后端进行格式转换。</p>
         <p>支持多种客户端格式。</p>
       </div>
-      
+
       <div class="feature-item">
         <h3>访问控制</h3>
         <p>支持管理员令牌和访客令牌。</p>
         <p>管理员可编辑订阅内容，访客仅可查看。</p>
       </div>
-      
+
       <div class="feature-item">
         <h3>KV存储</h3>
         <p>使用Cloudflare KV存储订阅数据。</p>
         <p>提供Web界面编辑订阅内容。</p>
       </div>
     </div>
-    
+
     <h2>访问订阅</h2>
     <div class="login-form card">
       <div class="tabs">
         <div class="tab active" onclick="switchTab('visitor')">访客登录</div>
         <div class="tab" onclick="switchTab('admin')">管理员登录</div>
       </div>
-      
+
       <div id="visitor-tab" class="tab-content active">
         <h3>访客登录</h3>
         <input type="password" id="visitor-token" placeholder="请输入访客令牌">
         <button class="btn" onclick="accessSubscription('visitor')">访问订阅</button>
       </div>
-      
+
       <div id="admin-tab" class="tab-content">
         <h3>管理员登录</h3>
         <input type="password" id="admin-token" placeholder="请输入管理员令牌">
@@ -144,24 +144,24 @@
       </div>
     </div>
   </div>
-  
+
   <script>
     function switchTab(tabName) {
       // 隐藏所有标签内容
       document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
       });
-      
+
       // 取消所有标签的激活状态
       document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.remove('active');
       });
-      
+
       // 激活选中的标签和内容
       document.getElementById(tabName + '-tab').classList.add('active');
       document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
     }
-    
+
     function accessSubscription(type) {
       let token;
       if (type === 'visitor') {
@@ -169,22 +169,22 @@
       } else {
         token = document.getElementById('admin-token').value.trim();
       }
-      
+
       if (!token) {
         alert('请输入访问令牌');
         return;
       }
-      
+
       window.location.href = `/sub?token=${token}`;
     }
-    
+
     // 支持按回车键登录
     document.getElementById('visitor-token').addEventListener('keyup', function(event) {
       if (event.key === 'Enter') {
         accessSubscription('visitor');
       }
     });
-    
+
     document.getElementById('admin-token').addEventListener('keyup', function(event) {
       if (event.key === 'Enter') {
         accessSubscription('admin');
@@ -192,4 +192,4 @@
     });
   </script>
 </body>
-</html> 
+</html>

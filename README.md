@@ -1,4 +1,4 @@
-# Atlas-Sub
+# One-Sub
 
 一个基于Cloudflare Workers的订阅转换和聚合服务。
 
@@ -21,8 +21,8 @@
 
 1. 克隆仓库
    ```bash
-   git clone https://github.com/yourusername/atlas-sub.git
-   cd atlas-sub
+   git clone https://github.com/yourusername/one-sub.git
+   cd one-sub
    ```
 
 2. 安装依赖

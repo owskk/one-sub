@@ -1,5 +1,5 @@
 {
-  "name": "atlas-sub",
+  "name": "one-sub",
   "version": "1.0.0",
   "description": "基于Cloudflare Workers的订阅转换和聚合服务",
   "main": "src/index.js",
@@ -24,4 +24,4 @@
   "devDependencies": {
     "wrangler": "^3.0.0"
   }
-} 
+}
