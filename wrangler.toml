@@ -1,4 +1,4 @@
-name = "sub-converter"
+name = "one-sub"
 main = "src/index.js"
 compatibility_date = "2023-09-04"
 
