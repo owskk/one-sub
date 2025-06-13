@@ -150,9 +150,6 @@ async function handleRequest(request, env) {
         headers: originalResponse.headers,
       });
       
-      // 添加 Content-Disposition 头，提示客户端下载文件
-      newResponse.headers.set('Content-Disposition', `attachment; filename="${target}"`);
-      
       // 添加CORS头
       newResponse.headers.set('Access-Control-Allow-Origin', '*');
       newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -228,9 +225,6 @@ async function handleRequest(request, env) {
         statusText: originalResponse.statusText,
         headers: originalResponse.headers,
       });
-      
-      // 添加 Content-Disposition 头，提示客户端下载文件
-      newResponse.headers.set('Content-Disposition', `attachment; filename="${target}"`);
       
       // 添加CORS头
       newResponse.headers.set('Access-Control-Allow-Origin', '*');
@@ -407,6 +401,12 @@ function generateHtmlContent(accessToken) {
         <div class="d-grid">
           <button id="copyBtn" class="btn btn-copy">复制链接</button>
         </div>
+        <div class="mt-3 alert alert-info">
+          <strong>使用说明：</strong>
+          <p>1. 生成的链接可直接添加到代理客户端中作为订阅链接</p>
+          <p>2. 链接会直接返回转换后的订阅内容，无需再次访问网页</p>
+          <p>3. 如果您的客户端无法正常使用，请尝试不同的目标格式</p>
+        </div>
       </div>
       
       <div class="footer">
@@ -463,12 +463,18 @@ function generateHtmlContent(accessToken) {
         const emoji = document.getElementById('emoji').checked;
         const newName = document.getElementById('newName').checked;
         
-        // 构建转换URL
+        // 构建转换URL - 修复直接访问订阅内容而非页面的问题
         let origin = window.location.origin;
-        let convertUrl = \`\${origin}\${currentPath}/sub?target=\${encodeURIComponent(target)}&url=\${encodeURIComponent(subUrl)}\`;
+        
+        // 提取当前路径中的token (如果是/token格式访问的)
+        const pathParts = currentPath.split('/').filter(part => part);
+        const pathToken = pathParts.length > 0 ? pathParts[0] : '';
+        
+        // 构建正确的订阅URL
+        let convertUrl = origin + '/' + pathToken + '/sub?target=' + encodeURIComponent(target) + '&url=' + encodeURIComponent(subUrl);
         
         if (config) {
-          convertUrl += \`&config=\${encodeURIComponent(config)}\`;
+          convertUrl += '&config=' + encodeURIComponent(config);
         }
         
         if (emoji) {
@@ -480,7 +486,7 @@ function generateHtmlContent(accessToken) {
         }
         
         if (backendUrl !== defaultBackend) {
-          convertUrl += \`&backend=\${encodeURIComponent(backendUrl)}\`;
+          convertUrl += '&backend=' + encodeURIComponent(backendUrl);
         }
         
         document.getElementById('resultUrl').textContent = convertUrl;
