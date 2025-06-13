@@ -13,181 +13,306 @@ const ALLOWED_TARGETS = [
   'surge', 'surge&ver=2', 'surge&ver=3', 'surge&ver=4'
 ];
 
-// HTML页面内容
-const HTML_CONTENT = `<!DOCTYPE html>
+// 常用配置文件列表
+const COMMON_CONFIGS = [
+  { name: '不使用配置', value: '' },
+  { name: 'ACL4SSR 精简版', value: 'https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/ACL4SSR_Mini.ini' },
+  { name: 'ACL4SSR 标准版', value: 'https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/ACL4SSR_Online.ini' },
+  { name: 'ACL4SSR 多国家地区', value: 'https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/ACL4SSR_Online_MultiCountry.ini' },
+  { name: 'ACL4SSR 全分组', value: 'https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/ACL4SSR_Online_Full.ini' },
+  { name: 'ACL4SSR 全分组 多模式', value: 'https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/ACL4SSR_Online_Full_MultiMode.ini' }
+];
+
+// 从环境变量获取访问令牌
+const ACCESS_TOKEN = typeof ACCESS_TOKEN !== 'undefined' ? ACCESS_TOKEN : '';
+
+// HTML页面内容生成函数
+function generateHtmlContent(accessToken) {
+  return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>订阅转换</title>
+  <title>订阅转换工具</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      max-width: 800px;
-      margin: 0 auto;
       padding: 20px;
       line-height: 1.6;
+      background-color: #f8f9fa;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
     }
     h1 {
       text-align: center;
       margin-bottom: 30px;
+      color: #333;
     }
-    .form-group {
-      margin-bottom: 15px;
+    .form-label {
+      font-weight: 500;
     }
-    label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
+    .form-text {
+      color: #6c757d;
+      font-size: 0.875rem;
     }
-    input[type="text"], select {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-    .checkbox-group {
-      margin-top: 10px;
-    }
-    .button-group {
-      margin-top: 20px;
-      text-align: center;
-    }
-    button {
+    .btn-primary {
       background-color: #4CAF50;
-      color: white;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
+      border-color: #4CAF50;
     }
-    button:hover {
+    .btn-primary:hover {
       background-color: #45a049;
+      border-color: #45a049;
     }
-    .result {
-      margin-top: 20px;
-      padding: 15px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
+    .btn-copy {
+      background-color: #2196F3;
+      border-color: #2196F3;
+    }
+    .btn-copy:hover {
+      background-color: #0b7dda;
+      border-color: #0b7dda;
+    }
+    .result-card {
+      margin-top: 30px;
+      border: 1px solid rgba(0, 0, 0, 0.125);
+      border-radius: 0.25rem;
+      padding: 20px;
       background-color: #f9f9f9;
     }
-    .copy-btn {
-      background-color: #2196F3;
-      margin-top: 10px;
+    .result-url {
+      word-break: break-all;
+      background-color: #f1f1f1;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 15px;
     }
-    .copy-btn:hover {
-      background-color: #0b7dda;
+    .advanced-options {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #dee2e6;
+    }
+    .footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 0.875rem;
+      color: #6c757d;
+    }
+    .token-input {
+      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
-  <h1>订阅转换工具</h1>
-  
-  <div class="form-group">
-    <label for="subUrl">订阅链接：</label>
-    <input type="text" id="subUrl" placeholder="请输入原始订阅链接，多个链接请用|分隔">
-  </div>
-  
-  <div class="form-group">
-    <label for="target">目标格式：</label>
-    <select id="target">
-      <option value="clash">Clash</option>
-      <option value="clashr">ClashR</option>
-      <option value="quan">Quantumult</option>
-      <option value="quanx">Quantumult X</option>
-      <option value="loon">Loon</option>
-      <option value="ss">SS (SIP002)</option>
-      <option value="sssub">SS Android</option>
-      <option value="ssr">SSR</option>
-      <option value="ssd">SSD</option>
-      <option value="surfboard">Surfboard</option>
-      <option value="surge&ver=4">Surge 4</option>
-      <option value="surge&ver=3">Surge 3</option>
-      <option value="surge&ver=2">Surge 2</option>
-      <option value="v2ray">V2Ray</option>
-    </select>
-  </div>
-  
-  <div class="form-group">
-    <label for="config">配置文件：</label>
-    <input type="text" id="config" placeholder="可选，配置文件链接">
-  </div>
-  
-  <div class="checkbox-group">
-    <input type="checkbox" id="emoji" checked>
-    <label for="emoji" style="display: inline;">启用 Emoji</label>
-  </div>
-  
-  <div class="checkbox-group">
-    <input type="checkbox" id="newName" checked>
-    <label for="newName" style="display: inline;">使用新命名</label>
-  </div>
-  
-  <div class="button-group">
-    <button id="convertBtn">生成订阅链接</button>
-  </div>
-  
-  <div class="result" id="result" style="display: none;">
-    <h3>转换结果：</h3>
-    <p id="resultUrl"></p>
-    <button class="copy-btn" id="copyBtn">复制链接</button>
+  <div class="container">
+    <h1>订阅转换工具</h1>
+    
+    <div id="token-check" class="token-input" style="display: none;">
+      <div class="mb-3">
+        <label for="accessToken" class="form-label">访问令牌</label>
+        <input type="password" class="form-control" id="accessToken" placeholder="请输入访问令牌">
+        <div class="form-text">需要访问令牌才能使用此服务</div>
+      </div>
+      <button id="verifyTokenBtn" class="btn btn-primary">验证</button>
+    </div>
+    
+    <div id="converter-form" style="display: none;">
+      <div class="mb-3">
+        <label for="subUrl" class="form-label">订阅链接</label>
+        <input type="text" class="form-control" id="subUrl" placeholder="请输入原始订阅链接，多个链接请用|分隔">
+        <div class="form-text">支持多种订阅格式，多个订阅请用 | 分隔</div>
+      </div>
+      
+      <div class="mb-3">
+        <label for="target" class="form-label">目标格式</label>
+        <select class="form-select" id="target">
+          <option value="clash">Clash</option>
+          <option value="clashr">ClashR</option>
+          <option value="quan">Quantumult</option>
+          <option value="quanx">Quantumult X</option>
+          <option value="loon">Loon</option>
+          <option value="ss">SS (SIP002)</option>
+          <option value="sssub">SS Android</option>
+          <option value="ssr">SSR</option>
+          <option value="ssd">SSD</option>
+          <option value="surfboard">Surfboard</option>
+          <option value="surge&ver=4">Surge 4</option>
+          <option value="surge&ver=3">Surge 3</option>
+          <option value="surge&ver=2">Surge 2</option>
+          <option value="v2ray">V2Ray</option>
+        </select>
+      </div>
+      
+      <div class="mb-3">
+        <label for="config" class="form-label">配置文件</label>
+        <select class="form-select" id="configSelect">
+          <!-- 将通过JavaScript填充 -->
+        </select>
+      </div>
+      
+      <div class="mb-3">
+        <label for="customConfig" class="form-label">自定义配置链接</label>
+        <input type="text" class="form-control" id="customConfig" placeholder="可选，自定义配置文件链接">
+      </div>
+      
+      <div class="mb-3">
+        <label for="backendUrl" class="form-label">后端服务地址</label>
+        <input type="text" class="form-control" id="backendUrl" placeholder="可选，自定义后端服务地址">
+        <div class="form-text">留空则使用默认后端</div>
+      </div>
+      
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="emoji" checked>
+        <label class="form-check-label" for="emoji">启用 Emoji</label>
+      </div>
+      
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="newName" checked>
+        <label class="form-check-label" for="newName">使用新命名</label>
+      </div>
+      
+      <div class="d-grid">
+        <button id="convertBtn" class="btn btn-primary">生成订阅链接</button>
+      </div>
+      
+      <div id="result" class="result-card" style="display: none;">
+        <h5>转换结果</h5>
+        <div id="resultUrl" class="result-url"></div>
+        <div class="d-grid">
+          <button id="copyBtn" class="btn btn-copy">复制链接</button>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <p>基于 <a href="https://github.com/tindy2013/subconverter" target="_blank">subconverter</a> 提供的后端服务</p>
+      </div>
+    </div>
   </div>
 
   <script>
-    document.getElementById('convertBtn').addEventListener('click', function() {
-      const subUrl = encodeURIComponent(document.getElementById('subUrl').value.trim());
-      const target = document.getElementById('target').value;
-      const config = encodeURIComponent(document.getElementById('config').value.trim());
-      const emoji = document.getElementById('emoji').checked;
-      const newName = document.getElementById('newName').checked;
-      
-      if (!subUrl) {
-        alert('请输入订阅链接');
-        return;
-      }
-      
-      // 构建转换URL
-      let convertUrl = \`\${window.location.origin}/sub?target=\${target}&url=\${subUrl}\`;
-      
-      if (config) {
-        convertUrl += \`&config=\${config}\`;
-      }
-      
-      if (emoji) {
-        convertUrl += '&emoji=true';
-      }
-      
-      if (newName) {
-        convertUrl += '&new_name=true';
-      }
-      
-      document.getElementById('resultUrl').textContent = convertUrl;
-      document.getElementById('result').style.display = 'block';
-    });
+    // 常用配置文件列表
+    const commonConfigs = ${JSON.stringify(COMMON_CONFIGS)};
     
-    document.getElementById('copyBtn').addEventListener('click', function() {
-      const resultUrl = document.getElementById('resultUrl').textContent;
+    // 默认后端
+    const defaultBackend = '${DEFAULT_BACKEND}';
+    
+    // 访问令牌
+    const accessToken = '${accessToken}';
+    
+    // 初始化页面
+    document.addEventListener('DOMContentLoaded', function() {
+      // 填充配置文件下拉列表
+      const configSelect = document.getElementById('configSelect');
+      commonConfigs.forEach(config => {
+        const option = document.createElement('option');
+        option.value = config.value;
+        option.textContent = config.name;
+        configSelect.appendChild(option);
+      });
       
-      navigator.clipboard.writeText(resultUrl).then(function() {
-        alert('链接已复制到剪贴板');
-      }, function(err) {
-        console.error('复制失败: ', err);
+      // 设置默认后端
+      document.getElementById('backendUrl').placeholder = '默认: ' + defaultBackend;
+      
+      // 检查是否需要令牌验证
+      if (accessToken) {
+        document.getElementById('token-check').style.display = 'block';
         
-        // 备用复制方法
-        const textarea = document.createElement('textarea');
-        textarea.value = resultUrl;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        alert('链接已复制到剪贴板');
+        // 验证令牌
+        document.getElementById('verifyTokenBtn').addEventListener('click', function() {
+          const inputToken = document.getElementById('accessToken').value.trim();
+          if (inputToken === accessToken) {
+            document.getElementById('token-check').style.display = 'none';
+            document.getElementById('converter-form').style.display = 'block';
+          } else {
+            alert('访问令牌无效');
+          }
+        });
+      } else {
+        document.getElementById('converter-form').style.display = 'block';
+      }
+      
+      // 配置文件选择逻辑
+      document.getElementById('configSelect').addEventListener('change', function() {
+        const customConfigInput = document.getElementById('customConfig');
+        if (this.value) {
+          customConfigInput.value = this.value;
+        } else {
+          customConfigInput.value = '';
+        }
+      });
+      
+      // 生成订阅链接
+      document.getElementById('convertBtn').addEventListener('click', function() {
+        const subUrl = document.getElementById('subUrl').value.trim();
+        if (!subUrl) {
+          alert('请输入订阅链接');
+          return;
+        }
+        
+        const target = document.getElementById('target').value;
+        const config = document.getElementById('customConfig').value.trim();
+        const backendUrl = document.getElementById('backendUrl').value.trim() || defaultBackend;
+        const emoji = document.getElementById('emoji').checked;
+        const newName = document.getElementById('newName').checked;
+        
+        // 构建转换URL
+        let origin = window.location.origin;
+        let convertUrl = \`\${origin}/sub?target=\${encodeURIComponent(target)}&url=\${encodeURIComponent(subUrl)}\`;
+        
+        if (config) {
+          convertUrl += \`&config=\${encodeURIComponent(config)}\`;
+        }
+        
+        if (emoji) {
+          convertUrl += '&emoji=true';
+        }
+        
+        if (newName) {
+          convertUrl += '&new_name=true';
+        }
+        
+        if (backendUrl !== defaultBackend) {
+          convertUrl += \`&backend=\${encodeURIComponent(backendUrl)}\`;
+        }
+        
+        // 如果有令牌，添加到URL
+        if (accessToken) {
+          convertUrl += \`&token=\${accessToken}\`;
+        }
+        
+        document.getElementById('resultUrl').textContent = convertUrl;
+        document.getElementById('result').style.display = 'block';
+      });
+      
+      // 复制链接
+      document.getElementById('copyBtn').addEventListener('click', function() {
+        const resultUrl = document.getElementById('resultUrl').textContent;
+        
+        navigator.clipboard.writeText(resultUrl).then(function() {
+          alert('链接已复制到剪贴板');
+        }, function(err) {
+          console.error('复制失败: ', err);
+          
+          // 备用复制方法
+          const textarea = document.createElement('textarea');
+          textarea.value = resultUrl;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          alert('链接已复制到剪贴板');
+        });
       });
     });
   </script>
 </body>
 </html>`;
+}
 
 /**
  * 处理请求
@@ -198,7 +323,7 @@ async function handleRequest(request) {
   
   // 如果是根路径，返回HTML页面
   if (path === '/' || path === '') {
-    return new Response(HTML_CONTENT, {
+    return new Response(generateHtmlContent(ACCESS_TOKEN), {
       headers: {
         'Content-Type': 'text/html;charset=utf-8',
       },
@@ -213,6 +338,13 @@ async function handleRequest(request) {
     const target = params.get('target');
     const subUrl = params.get('url');
     const config = params.get('config');
+    const token = params.get('token');
+    const backendUrlParam = params.get('backend');
+    
+    // 如果设置了访问令牌，则验证令牌
+    if (ACCESS_TOKEN && token !== ACCESS_TOKEN) {
+      return new Response('访问令牌无效或缺失', { status: 403 });
+    }
     
     // 验证必要参数
     if (!target || !subUrl) {
@@ -224,12 +356,17 @@ async function handleRequest(request) {
       return new Response('不支持的目标格式', { status: 400 });
     }
     
-    // 构建后端请求URL
-    const backendUrl = new URL('/sub', DEFAULT_BACKEND);
+    // 确定后端URL
+    const backendBaseUrl = backendUrlParam || DEFAULT_BACKEND;
     
-    // 复制所有参数
+    // 构建后端请求URL
+    const backendUrl = new URL('/sub', backendBaseUrl);
+    
+    // 复制所有参数，但排除backend和token
     for (const [key, value] of params.entries()) {
-      backendUrl.searchParams.append(key, value);
+      if (key !== 'backend' && key !== 'token') {
+        backendUrl.searchParams.append(key, value);
+      }
     }
     
     try {
@@ -239,6 +376,13 @@ async function handleRequest(request) {
           'User-Agent': request.headers.get('User-Agent') || 'SubConverter-Worker',
         },
       });
+      
+      // 如果后端返回错误
+      if (!response.ok) {
+        return new Response(`后端服务错误: ${response.status} ${response.statusText}`, { 
+          status: response.status 
+        });
+      }
       
       // 获取原始响应
       const originalResponse = new Response(response.body, response);

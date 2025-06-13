@@ -1,4 +1,4 @@
-name = "sub-converter"
+name = "one-sub"
 main = "src/index.js"
 compatibility_date = "2023-09-04"
 
@@ -14,3 +14,8 @@ workers_dev = true
 [observability]
 enabled = true
 head_sampling_rate = 1 # optional. default = 1.
+
+# 环境变量
+[vars]
+# 访问令牌，留空表示不启用验证
+ACCESS_TOKEN = ""
