@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atlas-Sub 订阅转换</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+    h1, h2, h3 {
+      color: #0056b3;
+    }
+    .container {
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .btn {
+      display: inline-block;
+      padding: 8px 16px;
+      background-color: #0056b3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+    .btn:hover {
+      background-color: #004494;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 15px;
+      background-color: #fff;
+    }
+    .feature-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .feature-item {
+      flex: 1 0 300px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+    }
+    .login-form {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Atlas-Sub 订阅转换</h1>
+    <p>一个强大的订阅聚合与转换服务，基于Cloudflare Workers。</p>
+    
+    <div class="feature-list">
+      <div class="feature-item">
+        <h3>订阅聚合</h3>
+        <p>汇总多个订阅源，包括直接节点链接和订阅链接。</p>
+        <p>支持自建节点和第三方订阅链接的混合使用。</p>
+      </div>
+      
+      <div class="feature-item">
+        <h3>订阅转换</h3>
+        <p>使用在线订阅转换后端进行格式转换。</p>
+        <p>支持多种客户端格式。</p>
+      </div>
+      
+      <div class="feature-item">
+        <h3>访问控制</h3>
+        <p>支持管理员令牌和访客令牌。</p>
+        <p>管理员可编辑订阅内容，访客仅可查看。</p>
+      </div>
+      
+      <div class="feature-item">
+        <h3>KV存储</h3>
+        <p>使用Cloudflare KV存储订阅数据。</p>
+        <p>提供Web界面编辑订阅内容。</p>
+      </div>
+    </div>
+    
+    <h2>访问订阅</h2>
+    <div class="login-form card">
+      <h3>输入令牌访问</h3>
+      <input type="text" id="token" placeholder="请输入访问令牌">
+      <button class="btn" onclick="accessSubscription()">访问</button>
+    </div>
+  </div>
+  
+  <script>
+    function accessSubscription() {
+      const token = document.getElementById('token').value.trim();
+      if (!token) {
+        alert('请输入访问令牌');
+        return;
+      }
+      
+      window.location.href = `/sub?token=${token}`;
+    }
+  </script>
+</body>
+</html> 
