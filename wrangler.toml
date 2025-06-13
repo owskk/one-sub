@@ -1,0 +1,16 @@
+name = "sub-converter"
+main = "src/index.js"
+compatibility_date = "2023-09-04"
+
+# 开发环境配置
+[dev]
+port = 8787
+local_protocol = "http"
+
+# 生产环境配置
+[env.production]
+workers_dev = true 
+
+[observability]
+enabled = true
+head_sampling_rate = 1 # optional. default = 1.
