@@ -76,11 +76,13 @@ export async function handleSubscriptionRequest(request, env) {
     // 如果指定了格式，进行转换
     if (format) {
       try {
+        console.log(`开始转换订阅格式: ${format}, 使用API: ${env.SUB_CONVERT_API}`);
         const convertedContent = await convertSubscription(aggregatedContent, format, env.SUB_CONVERT_API);
         return new Response(convertedContent, {
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
         });
       } catch (error) {
+        console.error(`订阅转换失败: ${error.message}`);
         return new Response(generateHtml('转换失败', `
           <div class="error-container">
             <h1>订阅转换失败</h1>
@@ -207,5 +209,26 @@ async function getSubscriptions(env) {
     return {
       sources: []
     };
+  }
+}
+
+// 转换订阅格式
+async function convertSubscription(url, format, env) {
+  try {
+    const convertApi = env.SUB_CONVERT_API || 'https://api.v1.mk/sub';
+    const convertUrl = `${convertApi}?target=${format}&url=${encodeURIComponent(url)}`;
+    
+    console.log(`订阅转换URL: ${convertUrl}`);
+    
+    const response = await fetch(convertUrl);
+    if (!response.ok) {
+      console.error(`订阅转换失败: 状态码: ${response.status}`);
+      return null;
+    }
+    
+    return await response.text();
+  } catch (error) {
+    console.error(`订阅转换出错:`, error);
+    return null;
   }
 } 

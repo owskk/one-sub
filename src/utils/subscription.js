@@ -164,7 +164,7 @@ export async function convertSubscription(content, targetType, apiUrl) {
     const encodedContent = btoa(content);
     const url = `${apiUrl}?target=${targetType}&url=${encodeURIComponent('data:text/plain;base64,' + encodedContent)}`;
     
-    console.log(`请求转换API: ${apiUrl}`);
+    console.log(`订阅转换URL: ${url}`);
     
     // 使用AbortController实现超时
     const controller = new AbortController();
