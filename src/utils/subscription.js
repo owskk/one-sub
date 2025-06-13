@@ -15,12 +15,29 @@ export async function aggregateSubscriptions(sources) {
       if (source.type === 'url') {
         // 获取远程订阅内容
         console.log(`正在获取订阅: ${source.url}`);
-        const response = await fetch(source.url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          },
-          timeout: 10000 // 10秒超时
-        });
+        let response;
+        try {
+          // 使用AbortController实现超时
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+          
+          response = await fetch(source.url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            },
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+        } catch (fetchError) {
+          if (fetchError.name === 'AbortError') {
+            console.error(`获取订阅超时: ${source.url}`);
+          } else {
+            console.error(`获取订阅失败: ${source.url}, 错误: ${fetchError.message}`);
+          }
+          failCount++;
+          continue;
+        }
         
         if (!response.ok) {
           console.error(`获取订阅失败: ${source.url}, 状态码: ${response.status}`);
@@ -28,7 +45,15 @@ export async function aggregateSubscriptions(sources) {
           continue;
         }
         
-        const content = await response.text();
+        let content;
+        try {
+          content = await response.text();
+        } catch (textError) {
+          console.error(`读取订阅内容失败: ${source.url}, 错误: ${textError.message}`);
+          failCount++;
+          continue;
+        }
+        
         if (!content || content.trim() === '') {
           console.error(`订阅内容为空: ${source.url}`);
           failCount++;
@@ -113,18 +138,39 @@ export async function convertSubscription(content, targetType, apiUrl) {
     
     console.log(`请求转换API: ${apiUrl}`);
     
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 15000 // 15秒超时
-    });
+    // 使用AbortController实现超时
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超时
+    
+    let response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      if (fetchError.name === 'AbortError') {
+        throw new Error('转换API请求超时');
+      } else {
+        throw new Error(`转换API请求失败: ${fetchError.message}`);
+      }
+    }
     
     if (!response.ok) {
       throw new Error(`订阅转换失败，状态码: ${response.status}`);
     }
     
-    const result = await response.text();
+    let result;
+    try {
+      result = await response.text();
+    } catch (textError) {
+      throw new Error(`读取转换结果失败: ${textError.message}`);
+    }
+    
     if (!result || result.trim() === '') {
       throw new Error('转换结果为空');
     }
