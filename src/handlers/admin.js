@@ -1,4 +1,5 @@
 import { generateAdminPage } from '../utils/html';
+import { generateHtml } from '../utils/html';
 
 /**
  * 处理管理员请求
@@ -10,24 +11,57 @@ export async function handleAdminRequest(request, env) {
   const url = new URL(request.url);
   const action = url.searchParams.get('action');
   
-  // 获取当前订阅数据
-  let subscriptions = await getSubscriptions(env);
-  
-  // 处理管理操作
-  if (request.method === 'POST') {
-    if (action === 'addSource') {
-      return await handleAddSource(request, env, subscriptions);
-    } else if (action === 'deleteSource') {
-      return await handleDeleteSource(request, env, subscriptions);
+  try {
+    // 获取当前订阅数据
+    let subscriptions = await getSubscriptions(env);
+    
+    // 处理管理操作
+    if (request.method === 'POST') {
+      if (action === 'addSource') {
+        return await handleAddSource(request, env, subscriptions);
+      } else if (action === 'deleteSource') {
+        return await handleDeleteSource(request, env, subscriptions);
+      } else if (action === 'testSource') {
+        return await handleTestSource(request, env);
+      } else {
+        return new Response(JSON.stringify({
+          success: false,
+          error: '未知操作'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+    
+    // 生成管理页面
+    const adminUrl = request.url.split('?')[0] + '?token=' + env.ADMIN_TOKEN;
+    const html = generateAdminPage(subscriptions, adminUrl);
+    return new Response(html, {
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+    });
+  } catch (error) {
+    console.error('处理管理员请求失败:', error);
+    
+    if (request.headers.get('Accept')?.includes('application/json')) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: error.message
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } else {
+      return new Response(generateHtml('错误', `
+        <h1>处理请求出错</h1>
+        <p class="error">${error.message}</p>
+        <p><a href="${request.url.split('?')[0]}?token=${env.ADMIN_TOKEN}" class="btn">返回管理页面</a></p>
+      `), {
+        status: 500,
+        headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+      });
     }
   }
-  
-  // 生成管理页面
-  const adminUrl = request.url.split('?')[0] + '?token=' + env.ADMIN_TOKEN;
-  const html = generateAdminPage(subscriptions, adminUrl);
-  return new Response(html, {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-  });
 }
 
 /**
@@ -44,7 +78,16 @@ async function getSubscriptions(env) {
     };
     await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
   } else {
-    subscriptions = JSON.parse(subscriptions);
+    try {
+      subscriptions = JSON.parse(subscriptions);
+    } catch (error) {
+      console.error('解析订阅数据失败:', error);
+      // 重置订阅数据
+      subscriptions = {
+        sources: []
+      };
+      await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+    }
   }
   return subscriptions;
 }
@@ -82,10 +125,25 @@ async function handleAddSource(request, env, subscriptions) {
         });
       }
       
+      // 检查是否已存在相同的URL
+      const existingUrlIndex = subscriptions.sources.findIndex(
+        source => source.type === 'url' && source.url === data.url
+      );
+      
+      if (existingUrlIndex !== -1) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: '该订阅链接已存在'
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
       // 添加订阅链接
       subscriptions.sources.push({
         type: 'url',
-        url: data.url
+        url: data.url,
+        addedAt: new Date().toISOString()
       });
     } else if (data.type === 'node') {
       if (!data.content || !data.content.trim()) {
@@ -97,10 +155,25 @@ async function handleAddSource(request, env, subscriptions) {
         });
       }
       
+      // 检查是否已存在相同的节点内容
+      const existingNodeIndex = subscriptions.sources.findIndex(
+        source => source.type === 'node' && source.content === data.content
+      );
+      
+      if (existingNodeIndex !== -1) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: '该节点内容已存在'
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
       // 添加节点
       subscriptions.sources.push({
         type: 'node',
-        content: data.content
+        content: data.content,
+        addedAt: new Date().toISOString()
       });
     } else {
       return new Response(JSON.stringify({
@@ -115,15 +188,18 @@ async function handleAddSource(request, env, subscriptions) {
     await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
     
     return new Response(JSON.stringify({
-      success: true
+      success: true,
+      message: '添加成功'
     }), {
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
+    console.error('添加订阅源失败:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: '添加订阅源失败: ' + error.message
     }), {
+      status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
@@ -141,31 +217,153 @@ async function handleDeleteSource(request, env, subscriptions) {
     const data = await request.json();
     const index = data.index;
     
+    if (index === undefined || index === null) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: '未指定索引'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     if (index < 0 || index >= subscriptions.sources.length) {
       return new Response(JSON.stringify({
         success: false,
         error: '无效的索引'
       }), {
+        status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
     
     // 删除订阅源
-    subscriptions.sources.splice(index, 1);
+    const deletedSource = subscriptions.sources.splice(index, 1)[0];
     
     // 保存订阅数据
     await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
     
     return new Response(JSON.stringify({
-      success: true
+      success: true,
+      message: '删除成功',
+      deletedSource
     }), {
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
+    console.error('删除订阅源失败:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: '删除订阅源失败: ' + error.message
     }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * 处理测试订阅源
+ * @param {Request} request - 请求对象
+ * @param {Object} env - 环境变量
+ * @returns {Promise<Response>} - 响应对象
+ */
+async function handleTestSource(request, env) {
+  try {
+    const data = await request.json();
+    
+    if (data.type === 'url') {
+      if (!data.url || !data.url.trim()) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: '订阅链接不能为空'
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // 验证URL是否有效
+      try {
+        new URL(data.url);
+      } catch (e) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: '无效的URL格式'
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // 测试订阅链接
+      try {
+        const response = await fetch(data.url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          timeout: 10000 // 10秒超时
+        });
+        
+        if (!response.ok) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: `获取订阅失败，状态码: ${response.status}`
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        const content = await response.text();
+        if (!content || content.trim() === '') {
+          return new Response(JSON.stringify({
+            success: false,
+            error: '订阅内容为空'
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        // 尝试解析内容
+        let nodeCount = 0;
+        try {
+          const decodedContent = atob(content.trim());
+          const lines = decodedContent.split('\n');
+          nodeCount = lines.filter(line => line.trim()).length;
+        } catch (e) {
+          // 如果不是base64编码，直接按行分割
+          const lines = content.split('\n');
+          nodeCount = lines.filter(line => line.trim()).length;
+        }
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: '测试成功',
+          nodeCount
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: '测试订阅失败: ' + error.message
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } else {
+      return new Response(JSON.stringify({
+        success: false,
+        error: '仅支持测试URL类型的订阅源'
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  } catch (error) {
+    console.error('测试订阅源失败:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: '测试订阅源失败: ' + error.message
+    }), {
+      status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
