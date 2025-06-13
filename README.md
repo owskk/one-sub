@@ -87,7 +87,21 @@ wrangler publish
 
 ### 访问转换工具
 
-直接访问 Worker 域名会显示一个伪装的 Nginx 默认页面。要访问真正的转换工具，需要在 URL 后添加 `?token=your-secret-token` 参数：
+直接访问 Worker 域名会显示一个伪装的 Nginx 默认欢迎页面。要访问真正的转换工具，有两种方式：
+
+#### 方式一：URL路径方式（推荐）
+
+直接在域名后面添加访问令牌作为路径：
+
+```
+https://your-worker-domain.workers.dev/your-secret-token
+```
+
+这种方式更加简洁，也更符合URL的设计理念。
+
+#### 方式二：查询参数方式
+
+在URL后添加 `?token=your-secret-token` 参数：
 
 ```
 https://your-worker-domain.workers.dev/?token=your-secret-token
@@ -100,8 +114,18 @@ https://your-worker-domain.workers.dev/?token=your-secret-token
 
 ### API 接口
 
+使用API接口时，也有两种方式：
+
+#### 方式一：URL路径方式（推荐）
+
 ```
-https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&config=配置文件链接&token=your-secret-token
+https://your-worker-domain.workers.dev/your-secret-token/sub?target=clash&url=订阅链接
+```
+
+#### 方式二：查询参数方式
+
+```
+https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&token=your-secret-token
 ```
 
 #### 参数说明
@@ -114,7 +138,7 @@ https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&config=
 | emoji | 否 | true | 是否启用 Emoji |
 | new_name | 否 | true | 是否使用新命名 |
 | backend | 否 | https%3A%2F%2Fapi.example.com | 自定义后端服务地址 |
-| token | 否 | your-secret-token | 访问令牌（如果启用了令牌验证） |
+| token | 否 | your-secret-token | 访问令牌（如果使用查询参数方式） |
 
 ## 安全说明
 
@@ -126,7 +150,7 @@ https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&config=
 
 如果您启用了访问令牌验证，请注意：
 
-1. 令牌会在生成的链接中明文显示，请妥善保管
+1. 使用URL路径方式时，令牌会作为URL的一部分，请妥善保管
 2. 建议使用复杂的随机字符串作为令牌
 3. 如果令牌泄露，请及时更换
 

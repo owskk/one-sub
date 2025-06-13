@@ -18,4 +18,4 @@ head_sampling_rate = 1 # optional. default = 1.
 # 环境变量
 [vars]
 # 访问令牌，留空表示不启用验证
-ACCESS_TOKEN = ""
+ACCESS_TOKEN = "123"

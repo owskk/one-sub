@@ -23,9 +23,6 @@ const COMMON_CONFIGS = [
   { name: 'ACL4SSR 全分组 多模式', value: 'https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/ACL4SSR_Online_Full_MultiMode.ini' }
 ];
 
-// 从环境变量获取访问令牌
-const ACCESS_TOKEN = typeof ACCESS_TOKEN !== 'undefined' ? ACCESS_TOKEN : '';
-
 // Nginx默认欢迎页面
 const NGINX_DEFAULT_PAGE = `<!DOCTYPE html>
 <html>
@@ -52,6 +49,212 @@ Commercial support is available at
 <p><em>Thank you for using nginx.</em></p>
 </body>
 </html>`;
+
+/**
+ * 处理请求
+ */
+async function handleRequest(request, env) {
+  // 从环境变量获取访问令牌
+  const ACCESS_TOKEN = env && env.ACCESS_TOKEN ? env.ACCESS_TOKEN : '';
+  
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const params = url.searchParams;
+  const token = params.get('token');
+  
+  // 检查路径中是否包含token
+  const pathParts = path.split('/').filter(part => part);
+  const pathToken = pathParts.length > 0 ? pathParts[0] : null;
+  
+  // 如果是根路径，返回Nginx默认页面
+  if (path === '/' || path === '') {
+    // 如果有查询参数token并且token正确，显示转换工具
+    if (token && ACCESS_TOKEN && token === ACCESS_TOKEN) {
+      return new Response(generateHtmlContent(ACCESS_TOKEN), {
+        headers: {
+          'Content-Type': 'text/html;charset=utf-8',
+        },
+      });
+    }
+    // 否则显示Nginx默认页面
+    return new Response(NGINX_DEFAULT_PAGE, {
+      headers: {
+        'Content-Type': 'text/html;charset=utf-8',
+        'Server': 'nginx/1.18.0 (Ubuntu)'
+      },
+    });
+  }
+  
+  // 如果路径是/token格式，并且token正确，显示转换工具
+  if (pathToken && ACCESS_TOKEN && pathToken === ACCESS_TOKEN) {
+    return new Response(generateHtmlContent(ACCESS_TOKEN), {
+      headers: {
+        'Content-Type': 'text/html;charset=utf-8',
+      },
+    });
+  }
+  
+  // 如果路径以token开头，后面跟着/sub，处理订阅转换请求
+  if (pathParts.length >= 2 && pathParts[0] === ACCESS_TOKEN && pathParts[1] === 'sub') {
+    // 获取参数
+    const target = params.get('target');
+    const subUrl = params.get('url');
+    const config = params.get('config');
+    const backendUrlParam = params.get('backend');
+    
+    // 验证必要参数
+    if (!target || !subUrl) {
+      return new Response('缺少必要参数: target 和 url 是必须的', { status: 400 });
+    }
+    
+    // 验证目标格式
+    if (!ALLOWED_TARGETS.includes(target) && !target.startsWith('surge&ver=')) {
+      return new Response('不支持的目标格式', { status: 400 });
+    }
+    
+    // 确定后端URL
+    const backendBaseUrl = backendUrlParam || DEFAULT_BACKEND;
+    
+    // 构建后端请求URL
+    const backendUrl = new URL('/sub', backendBaseUrl);
+    
+    // 复制所有参数，但排除backend和token
+    for (const [key, value] of params.entries()) {
+      if (key !== 'backend' && key !== 'token') {
+        backendUrl.searchParams.append(key, value);
+      }
+    }
+    
+    try {
+      // 发送请求到后端
+      const response = await fetch(backendUrl.toString(), {
+        headers: {
+          'User-Agent': request.headers.get('User-Agent') || 'SubConverter-Worker',
+        },
+      });
+      
+      // 如果后端返回错误
+      if (!response.ok) {
+        return new Response(`后端服务错误: ${response.status} ${response.statusText}`, { 
+          status: response.status 
+        });
+      }
+      
+      // 获取原始响应
+      const originalResponse = new Response(response.body, response);
+      
+      // 创建新的响应对象，添加自定义头
+      const newResponse = new Response(originalResponse.body, {
+        status: originalResponse.status,
+        statusText: originalResponse.statusText,
+        headers: originalResponse.headers,
+      });
+      
+      // 添加 Content-Disposition 头，提示客户端下载文件
+      newResponse.headers.set('Content-Disposition', `attachment; filename="${target}"`);
+      
+      // 添加CORS头
+      newResponse.headers.set('Access-Control-Allow-Origin', '*');
+      newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      
+      // 添加缓存控制
+      newResponse.headers.set('Cache-Control', 'public, max-age=600');
+      
+      return newResponse;
+    } catch (error) {
+      return new Response(`请求处理错误: ${error.message}`, { status: 500 });
+    }
+  }
+  
+  // 处理常规的/sub请求（带token参数）
+  if (path === '/sub') {
+    // 获取参数
+    const target = params.get('target');
+    const subUrl = params.get('url');
+    const config = params.get('config');
+    const reqToken = params.get('token');
+    const backendUrlParam = params.get('backend');
+    
+    // 如果设置了访问令牌，则验证令牌
+    if (ACCESS_TOKEN && reqToken !== ACCESS_TOKEN) {
+      return new Response('访问令牌无效或缺失', { status: 403 });
+    }
+    
+    // 验证必要参数
+    if (!target || !subUrl) {
+      return new Response('缺少必要参数: target 和 url 是必须的', { status: 400 });
+    }
+    
+    // 验证目标格式
+    if (!ALLOWED_TARGETS.includes(target) && !target.startsWith('surge&ver=')) {
+      return new Response('不支持的目标格式', { status: 400 });
+    }
+    
+    // 确定后端URL
+    const backendBaseUrl = backendUrlParam || DEFAULT_BACKEND;
+    
+    // 构建后端请求URL
+    const backendUrl = new URL('/sub', backendBaseUrl);
+    
+    // 复制所有参数，但排除backend和token
+    for (const [key, value] of params.entries()) {
+      if (key !== 'backend' && key !== 'token') {
+        backendUrl.searchParams.append(key, value);
+      }
+    }
+    
+    try {
+      // 发送请求到后端
+      const response = await fetch(backendUrl.toString(), {
+        headers: {
+          'User-Agent': request.headers.get('User-Agent') || 'SubConverter-Worker',
+        },
+      });
+      
+      // 如果后端返回错误
+      if (!response.ok) {
+        return new Response(`后端服务错误: ${response.status} ${response.statusText}`, { 
+          status: response.status 
+        });
+      }
+      
+      // 获取原始响应
+      const originalResponse = new Response(response.body, response);
+      
+      // 创建新的响应对象，添加自定义头
+      const newResponse = new Response(originalResponse.body, {
+        status: originalResponse.status,
+        statusText: originalResponse.statusText,
+        headers: originalResponse.headers,
+      });
+      
+      // 添加 Content-Disposition 头，提示客户端下载文件
+      newResponse.headers.set('Content-Disposition', `attachment; filename="${target}"`);
+      
+      // 添加CORS头
+      newResponse.headers.set('Access-Control-Allow-Origin', '*');
+      newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      
+      // 添加缓存控制
+      newResponse.headers.set('Cache-Control', 'public, max-age=600');
+      
+      return newResponse;
+    } catch (error) {
+      return new Response(`请求处理错误: ${error.message}`, { status: 500 });
+    }
+  }
+  
+  // 其他路径返回404，但伪装成Nginx 404页面
+  return new Response('<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>nginx/1.18.0 (Ubuntu)</center>\r\n</body>\r\n</html>', { 
+    status: 404,
+    headers: {
+      'Content-Type': 'text/html',
+      'Server': 'nginx/1.18.0 (Ubuntu)'
+    }
+  });
+}
 
 // HTML页面内容生成函数
 function generateHtmlContent(accessToken) {
@@ -139,16 +342,7 @@ function generateHtmlContent(accessToken) {
   <div class="container">
     <h1>订阅转换工具</h1>
     
-    <div id="token-check" class="token-input" style="display: none;">
-      <div class="mb-3">
-        <label for="accessToken" class="form-label">访问令牌</label>
-        <input type="password" class="form-control" id="accessToken" placeholder="请输入访问令牌">
-        <div class="form-text">需要访问令牌才能使用此服务</div>
-      </div>
-      <button id="verifyTokenBtn" class="btn btn-primary">验证</button>
-    </div>
-    
-    <div id="converter-form" style="display: none;">
+    <div id="converter-form">
       <div class="mb-3">
         <label for="subUrl" class="form-label">订阅链接</label>
         <input type="text" class="form-control" id="subUrl" placeholder="请输入原始订阅链接，多个链接请用|分隔">
@@ -228,8 +422,8 @@ function generateHtmlContent(accessToken) {
     // 默认后端
     const defaultBackend = '${DEFAULT_BACKEND}';
     
-    // 访问令牌
-    const accessToken = '${accessToken}';
+    // 获取当前路径（用于生成链接）
+    const currentPath = window.location.pathname;
     
     // 初始化页面
     document.addEventListener('DOMContentLoaded', function() {
@@ -244,24 +438,6 @@ function generateHtmlContent(accessToken) {
       
       // 设置默认后端
       document.getElementById('backendUrl').placeholder = '默认: ' + defaultBackend;
-      
-      // 检查是否需要令牌验证
-      if (accessToken) {
-        document.getElementById('token-check').style.display = 'block';
-        
-        // 验证令牌
-        document.getElementById('verifyTokenBtn').addEventListener('click', function() {
-          const inputToken = document.getElementById('accessToken').value.trim();
-          if (inputToken === accessToken) {
-            document.getElementById('token-check').style.display = 'none';
-            document.getElementById('converter-form').style.display = 'block';
-          } else {
-            alert('访问令牌无效');
-          }
-        });
-      } else {
-        document.getElementById('converter-form').style.display = 'block';
-      }
       
       // 配置文件选择逻辑
       document.getElementById('configSelect').addEventListener('change', function() {
@@ -289,7 +465,7 @@ function generateHtmlContent(accessToken) {
         
         // 构建转换URL
         let origin = window.location.origin;
-        let convertUrl = \`\${origin}/sub?target=\${encodeURIComponent(target)}&url=\${encodeURIComponent(subUrl)}\`;
+        let convertUrl = \`\${origin}\${currentPath}/sub?target=\${encodeURIComponent(target)}&url=\${encodeURIComponent(subUrl)}\`;
         
         if (config) {
           convertUrl += \`&config=\${encodeURIComponent(config)}\`;
@@ -305,11 +481,6 @@ function generateHtmlContent(accessToken) {
         
         if (backendUrl !== defaultBackend) {
           convertUrl += \`&backend=\${encodeURIComponent(backendUrl)}\`;
-        }
-        
-        // 如果有令牌，添加到URL
-        if (accessToken) {
-          convertUrl += \`&token=\${accessToken}\`;
         }
         
         document.getElementById('resultUrl').textContent = convertUrl;
@@ -342,131 +513,6 @@ function generateHtmlContent(accessToken) {
 }
 
 /**
- * 处理请求
- */
-async function handleRequest(request) {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  const params = url.searchParams;
-  const token = params.get('token');
-  
-  // 如果是根路径，返回Nginx默认页面
-  if ((path === '/' || path === '') && !token) {
-    return new Response(NGINX_DEFAULT_PAGE, {
-      headers: {
-        'Content-Type': 'text/html;charset=utf-8',
-        'Server': 'nginx/1.18.0 (Ubuntu)'
-      },
-    });
-  }
-  
-  // 如果是根路径但有token参数，验证token并显示转换工具
-  if ((path === '/' || path === '') && token) {
-    // 如果设置了访问令牌，则验证令牌
-    if (ACCESS_TOKEN && token !== ACCESS_TOKEN) {
-      return new Response(NGINX_DEFAULT_PAGE, {
-        headers: {
-          'Content-Type': 'text/html;charset=utf-8',
-          'Server': 'nginx/1.18.0 (Ubuntu)'
-        },
-      });
-    }
-    
-    // 令牌验证通过，返回转换工具页面
-    return new Response(generateHtmlContent(ACCESS_TOKEN), {
-      headers: {
-        'Content-Type': 'text/html;charset=utf-8',
-      },
-    });
-  }
-  
-  // 如果是订阅转换请求
-  if (path === '/sub') {
-    // 获取参数
-    const target = params.get('target');
-    const subUrl = params.get('url');
-    const config = params.get('config');
-    const reqToken = params.get('token');
-    const backendUrlParam = params.get('backend');
-    
-    // 如果设置了访问令牌，则验证令牌
-    if (ACCESS_TOKEN && reqToken !== ACCESS_TOKEN) {
-      return new Response('访问令牌无效或缺失', { status: 403 });
-    }
-    
-    // 验证必要参数
-    if (!target || !subUrl) {
-      return new Response('缺少必要参数: target 和 url 是必须的', { status: 400 });
-    }
-    
-    // 验证目标格式
-    if (!ALLOWED_TARGETS.includes(target) && !target.startsWith('surge&ver=')) {
-      return new Response('不支持的目标格式', { status: 400 });
-    }
-    
-    // 确定后端URL
-    const backendBaseUrl = backendUrlParam || DEFAULT_BACKEND;
-    
-    // 构建后端请求URL
-    const backendUrl = new URL('/sub', backendBaseUrl);
-    
-    // 复制所有参数，但排除backend和token
-    for (const [key, value] of params.entries()) {
-      if (key !== 'backend' && key !== 'token') {
-        backendUrl.searchParams.append(key, value);
-      }
-    }
-    
-    try {
-      // 发送请求到后端
-      const response = await fetch(backendUrl.toString(), {
-        headers: {
-          'User-Agent': request.headers.get('User-Agent') || 'SubConverter-Worker',
-        },
-      });
-      
-      // 如果后端返回错误
-      if (!response.ok) {
-        return new Response(`后端服务错误: ${response.status} ${response.statusText}`, { 
-          status: response.status 
-        });
-      }
-      
-      // 获取原始响应
-      const originalResponse = new Response(response.body, response);
-      
-      // 创建新的响应对象，添加自定义头
-      const newResponse = new Response(originalResponse.body, {
-        status: originalResponse.status,
-        statusText: originalResponse.statusText,
-        headers: originalResponse.headers,
-      });
-      
-      // 添加CORS头
-      newResponse.headers.set('Access-Control-Allow-Origin', '*');
-      newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-      
-      // 添加缓存控制
-      newResponse.headers.set('Cache-Control', 'public, max-age=600');
-      
-      return newResponse;
-    } catch (error) {
-      return new Response(`请求处理错误: ${error.message}`, { status: 500 });
-    }
-  }
-  
-  // 其他路径返回404，但伪装成Nginx 404页面
-  return new Response('<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>nginx/1.18.0 (Ubuntu)</center>\r\n</body>\r\n</html>', { 
-    status: 404,
-    headers: {
-      'Content-Type': 'text/html',
-      'Server': 'nginx/1.18.0 (Ubuntu)'
-    }
-  });
-}
-
-/**
  * 处理OPTIONS请求
  */
 function handleOptions(request) {
@@ -484,29 +530,25 @@ function handleOptions(request) {
 /**
  * 处理所有请求
  */
-addEventListener('fetch', event => {
-  const request = event.request;
-  
-  // 处理OPTIONS请求
-  if (request.method === 'OPTIONS') {
-    event.respondWith(handleOptions(request));
-    return;
-  }
-  
-  // 处理GET请求
-  if (request.method === 'GET') {
-    event.respondWith(handleRequest(request));
-    return;
-  }
-  
-  // 其他请求方法不支持，返回伪装的Nginx错误页面
-  event.respondWith(
-    new Response('<html>\r\n<head><title>405 Method Not Allowed</title></head>\r\n<body>\r\n<center><h1>405 Method Not Allowed</h1></center>\r\n<hr><center>nginx/1.18.0 (Ubuntu)</center>\r\n</body>\r\n</html>', { 
+export default {
+  async fetch(request, env, ctx) {
+    // 处理OPTIONS请求
+    if (request.method === 'OPTIONS') {
+      return handleOptions(request);
+    }
+    
+    // 处理GET请求
+    if (request.method === 'GET') {
+      return handleRequest(request, env);
+    }
+    
+    // 其他请求方法不支持，返回伪装的Nginx错误页面
+    return new Response('<html>\r\n<head><title>405 Method Not Allowed</title></head>\r\n<body>\r\n<center><h1>405 Method Not Allowed</h1></center>\r\n<hr><center>nginx/1.18.0 (Ubuntu)</center>\r\n</body>\r\n</html>', { 
       status: 405,
       headers: {
         'Content-Type': 'text/html',
         'Server': 'nginx/1.18.0 (Ubuntu)'
       }
-    })
-  );
-}); 
+    });
+  }
+}; 
