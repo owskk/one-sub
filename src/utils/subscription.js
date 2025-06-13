@@ -5,47 +5,81 @@
  */
 export async function aggregateSubscriptions(sources) {
   let nodes = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  console.log(`开始聚合 ${sources.length} 个订阅源`);
 
   for (const source of sources) {
     try {
       if (source.type === 'url') {
         // 获取远程订阅内容
-        const response = await fetch(source.url);
+        console.log(`正在获取订阅: ${source.url}`);
+        const response = await fetch(source.url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          timeout: 10000 // 10秒超时
+        });
+        
         if (!response.ok) {
           console.error(`获取订阅失败: ${source.url}, 状态码: ${response.status}`);
+          failCount++;
           continue;
         }
         
         const content = await response.text();
+        if (!content || content.trim() === '') {
+          console.error(`订阅内容为空: ${source.url}`);
+          failCount++;
+          continue;
+        }
+        
         // 解析订阅内容（这里假设是base64编码的）
         try {
           const decodedContent = atob(content.trim());
           const lines = decodedContent.split('\n');
+          let nodeCount = 0;
           for (const line of lines) {
             if (line.trim()) {
               nodes.push(line);
+              nodeCount++;
             }
           }
+          console.log(`成功解析订阅(Base64): ${source.url}, 获取节点数: ${nodeCount}`);
+          successCount++;
         } catch (e) {
           // 如果不是base64编码，直接按行分割
           const lines = content.split('\n');
+          let nodeCount = 0;
           for (const line of lines) {
             if (line.trim()) {
               nodes.push(line);
+              nodeCount++;
             }
           }
+          console.log(`成功解析订阅(文本): ${source.url}, 获取节点数: ${nodeCount}`);
+          successCount++;
         }
       } else if (source.type === 'node') {
         // 直接添加节点
         nodes.push(source.content);
+        console.log(`添加直接节点: ${source.content.substring(0, 20)}...`);
+        successCount++;
       }
     } catch (error) {
       console.error(`处理订阅源失败: ${error.message}`);
+      failCount++;
     }
   }
 
   // 去重
+  const originalCount = nodes.length;
   nodes = [...new Set(nodes)];
+  const uniqueCount = nodes.length;
+  
+  console.log(`订阅聚合完成: 成功 ${successCount} 个, 失败 ${failCount} 个, 总节点 ${originalCount} 个, 去重后 ${uniqueCount} 个`);
+  
   return nodes.join('\n');
 }
 
@@ -58,15 +92,45 @@ export async function aggregateSubscriptions(sources) {
  */
 export async function convertSubscription(content, targetType, apiUrl) {
   try {
-    const encodedContent = btoa(content);
-    const url = `${apiUrl}?target=${targetType}&url=${encodeURIComponent(encodedContent)}`;
+    console.log(`开始转换订阅格式: ${targetType}`);
     
-    const response = await fetch(url);
+    // 检查参数
+    if (!content) {
+      throw new Error('订阅内容为空');
+    }
+    
+    if (!targetType) {
+      throw new Error('未指定目标格式');
+    }
+    
+    if (!apiUrl) {
+      throw new Error('未配置转换API');
+    }
+    
+    // Base64编码内容
+    const encodedContent = btoa(content);
+    const url = `${apiUrl}?target=${targetType}&url=${encodeURIComponent('data:text/plain;base64,' + encodedContent)}`;
+    
+    console.log(`请求转换API: ${apiUrl}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 15000 // 15秒超时
+    });
+    
     if (!response.ok) {
       throw new Error(`订阅转换失败，状态码: ${response.status}`);
     }
     
-    return await response.text();
+    const result = await response.text();
+    if (!result || result.trim() === '') {
+      throw new Error('转换结果为空');
+    }
+    
+    console.log(`订阅转换成功: ${targetType}`);
+    return result;
   } catch (error) {
     console.error(`订阅转换失败: ${error.message}`);
     throw error;

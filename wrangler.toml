@@ -6,4 +6,8 @@ compatibility_date = "2023-08-01"
 [vars]
 ADMIN_TOKEN = "admin_token_change_me"
 VISITOR_TOKEN = "visitor_token_change_me"
-SUB_CONVERT_API = "https://api.v1.mk/sub" 
+SUB_CONVERT_API = "https://api.v1.mk/sub"
+
+# 静态资源配置
+[site]
+bucket = "./public"

@@ -9,13 +9,11 @@ const router = Router();
 
 // 主页路由
 router.get('/', async (request, env) => {
-  return new Response(generateHtml('订阅转换', `
-    <h1>订阅转换服务</h1>
-    <p>这是一个用于聚合和转换订阅的Cloudflare Worker服务。</p>
-    <p>请使用管理员或访客令牌访问相应功能。</p>
-  `), {
-    headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-  });
+  // 返回静态HTML页面
+  const url = new URL(request.url);
+  const newUrl = new URL('/index.html', url.origin);
+  const indexRequest = new Request(newUrl.toString(), request);
+  return env.ASSETS.fetch(indexRequest);
 });
 
 // 订阅路由
@@ -48,6 +46,16 @@ export default {
           'Access-Control-Allow-Headers': 'Content-Type',
         }
       });
+    }
+    
+    // 尝试从静态资源中获取
+    const url = new URL(request.url);
+    if (url.pathname !== '/' && !url.pathname.startsWith('/sub')) {
+      try {
+        return await env.ASSETS.fetch(request);
+      } catch (e) {
+        // 如果静态资源不存在，继续处理其他路由
+      }
     }
     
     // 添加CORS头

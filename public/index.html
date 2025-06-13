@@ -70,6 +70,27 @@
       max-width: 400px;
       margin: 0 auto;
     }
+    .tabs {
+      display: flex;
+      margin-bottom: 15px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active {
+      border-bottom: 2px solid #0056b3;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -105,15 +126,50 @@
     
     <h2>访问订阅</h2>
     <div class="login-form card">
-      <h3>输入令牌访问</h3>
-      <input type="text" id="token" placeholder="请输入访问令牌">
-      <button class="btn" onclick="accessSubscription()">访问</button>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('visitor')">访客登录</div>
+        <div class="tab" onclick="switchTab('admin')">管理员登录</div>
+      </div>
+      
+      <div id="visitor-tab" class="tab-content active">
+        <h3>访客登录</h3>
+        <input type="password" id="visitor-token" placeholder="请输入访客令牌">
+        <button class="btn" onclick="accessSubscription('visitor')">访问订阅</button>
+      </div>
+      
+      <div id="admin-tab" class="tab-content">
+        <h3>管理员登录</h3>
+        <input type="password" id="admin-token" placeholder="请输入管理员令牌">
+        <button class="btn" onclick="accessSubscription('admin')">管理订阅</button>
+      </div>
     </div>
   </div>
   
   <script>
-    function accessSubscription() {
-      const token = document.getElementById('token').value.trim();
+    function switchTab(tabName) {
+      // 隐藏所有标签内容
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // 取消所有标签的激活状态
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // 激活选中的标签和内容
+      document.getElementById(tabName + '-tab').classList.add('active');
+      document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+    }
+    
+    function accessSubscription(type) {
+      let token;
+      if (type === 'visitor') {
+        token = document.getElementById('visitor-token').value.trim();
+      } else {
+        token = document.getElementById('admin-token').value.trim();
+      }
+      
       if (!token) {
         alert('请输入访问令牌');
         return;
@@ -121,6 +177,19 @@
       
       window.location.href = `/sub?token=${token}`;
     }
+    
+    // 支持按回车键登录
+    document.getElementById('visitor-token').addEventListener('keyup', function(event) {
+      if (event.key === 'Enter') {
+        accessSubscription('visitor');
+      }
+    });
+    
+    document.getElementById('admin-token').addEventListener('keyup', function(event) {
+      if (event.key === 'Enter') {
+        accessSubscription('admin');
+      }
+    });
   </script>
 </body>
 </html> 

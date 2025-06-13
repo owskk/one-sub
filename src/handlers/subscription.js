@@ -15,15 +15,38 @@ export async function handleSubscriptionRequest(request, env) {
     // 获取订阅数据
     let subscriptions = await getSubscriptions(env);
     
+    // 检查是否有订阅源
+    if (!subscriptions.sources || subscriptions.sources.length === 0) {
+      return new Response('没有配置订阅源，请先添加订阅源', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+      });
+    }
+    
     // 聚合订阅源
     const aggregatedContent = await aggregateSubscriptions(subscriptions.sources);
     
-    // 如果指定了格式，进行转换
-    if (format) {
-      const convertedContent = await convertSubscription(aggregatedContent, format, env.SUB_CONVERT_API);
-      return new Response(convertedContent, {
+    // 检查聚合后的内容是否为空
+    if (!aggregatedContent.trim()) {
+      return new Response('聚合后的订阅内容为空，请检查订阅源是否有效', {
+        status: 404,
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
       });
+    }
+    
+    // 如果指定了格式，进行转换
+    if (format) {
+      try {
+        const convertedContent = await convertSubscription(aggregatedContent, format, env.SUB_CONVERT_API);
+        return new Response(convertedContent, {
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        });
+      } catch (error) {
+        return new Response(`订阅转换失败: ${error.message}`, {
+          status: 500,
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        });
+      }
     }
     
     // 如果没有指定格式，返回订阅信息页面
@@ -32,10 +55,17 @@ export async function handleSubscriptionRequest(request, env) {
     const subscriptionUrl = `${baseUrl}?token=${token}`;
     const clientUrls = getClientSubscriptionUrls(baseUrl, token);
     
-    const html = await generateSubscriptionPage(subscriptionUrl, clientUrls);
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-    });
+    try {
+      const html = await generateSubscriptionPage(subscriptionUrl, clientUrls);
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+      });
+    } catch (error) {
+      return new Response(`生成订阅页面失败: ${error.message}`, {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+      });
+    }
   } catch (error) {
     console.error('处理订阅请求失败:', error);
     return new Response('处理订阅请求失败: ' + error.message, {
