@@ -26,6 +26,33 @@ const COMMON_CONFIGS = [
 // 从环境变量获取访问令牌
 const ACCESS_TOKEN = typeof ACCESS_TOKEN !== 'undefined' ? ACCESS_TOKEN : '';
 
+// Nginx默认欢迎页面
+const NGINX_DEFAULT_PAGE = `<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>`;
+
 // HTML页面内容生成函数
 function generateHtmlContent(accessToken) {
   return `<!DOCTYPE html>
@@ -320,9 +347,32 @@ function generateHtmlContent(accessToken) {
 async function handleRequest(request) {
   const url = new URL(request.url);
   const path = url.pathname;
+  const params = url.searchParams;
+  const token = params.get('token');
   
-  // 如果是根路径，返回HTML页面
-  if (path === '/' || path === '') {
+  // 如果是根路径，返回Nginx默认页面
+  if ((path === '/' || path === '') && !token) {
+    return new Response(NGINX_DEFAULT_PAGE, {
+      headers: {
+        'Content-Type': 'text/html;charset=utf-8',
+        'Server': 'nginx/1.18.0 (Ubuntu)'
+      },
+    });
+  }
+  
+  // 如果是根路径但有token参数，验证token并显示转换工具
+  if ((path === '/' || path === '') && token) {
+    // 如果设置了访问令牌，则验证令牌
+    if (ACCESS_TOKEN && token !== ACCESS_TOKEN) {
+      return new Response(NGINX_DEFAULT_PAGE, {
+        headers: {
+          'Content-Type': 'text/html;charset=utf-8',
+          'Server': 'nginx/1.18.0 (Ubuntu)'
+        },
+      });
+    }
+    
+    // 令牌验证通过，返回转换工具页面
     return new Response(generateHtmlContent(ACCESS_TOKEN), {
       headers: {
         'Content-Type': 'text/html;charset=utf-8',
@@ -332,17 +382,15 @@ async function handleRequest(request) {
   
   // 如果是订阅转换请求
   if (path === '/sub') {
-    const params = url.searchParams;
-    
     // 获取参数
     const target = params.get('target');
     const subUrl = params.get('url');
     const config = params.get('config');
-    const token = params.get('token');
+    const reqToken = params.get('token');
     const backendUrlParam = params.get('backend');
     
     // 如果设置了访问令牌，则验证令牌
-    if (ACCESS_TOKEN && token !== ACCESS_TOKEN) {
+    if (ACCESS_TOKEN && reqToken !== ACCESS_TOKEN) {
       return new Response('访问令牌无效或缺失', { status: 403 });
     }
     
@@ -408,8 +456,14 @@ async function handleRequest(request) {
     }
   }
   
-  // 其他路径返回404
-  return new Response('页面不存在', { status: 404 });
+  // 其他路径返回404，但伪装成Nginx 404页面
+  return new Response('<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n<hr><center>nginx/1.18.0 (Ubuntu)</center>\r\n</body>\r\n</html>', { 
+    status: 404,
+    headers: {
+      'Content-Type': 'text/html',
+      'Server': 'nginx/1.18.0 (Ubuntu)'
+    }
+  });
 }
 
 /**
@@ -422,6 +476,7 @@ function handleOptions(request) {
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Max-Age': '86400',
+      'Server': 'nginx/1.18.0 (Ubuntu)'
     },
   });
 }
@@ -444,8 +499,14 @@ addEventListener('fetch', event => {
     return;
   }
   
-  // 其他请求方法不支持
+  // 其他请求方法不支持，返回伪装的Nginx错误页面
   event.respondWith(
-    new Response('不支持的请求方法', { status: 405 })
+    new Response('<html>\r\n<head><title>405 Method Not Allowed</title></head>\r\n<body>\r\n<center><h1>405 Method Not Allowed</h1></center>\r\n<hr><center>nginx/1.18.0 (Ubuntu)</center>\r\n</body>\r\n</html>', { 
+      status: 405,
+      headers: {
+        'Content-Type': 'text/html',
+        'Server': 'nginx/1.18.0 (Ubuntu)'
+      }
+    })
   );
 }); 

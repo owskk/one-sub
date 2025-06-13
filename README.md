@@ -10,6 +10,7 @@
 - 无需服务器，零成本部署
 - 支持自定义后端和配置文件
 - 支持访问令牌验证，保护您的服务
+- 根路径伪装成Nginx默认页面，提高隐蔽性
 
 ## 支持的订阅格式
 
@@ -84,11 +85,13 @@ wrangler publish
 
 ## 使用方法
 
-### Web 界面
+### 访问转换工具
 
-直接访问 Worker 域名，使用 Web 界面生成转换链接。
+直接访问 Worker 域名会显示一个伪装的 Nginx 默认页面。要访问真正的转换工具，需要在 URL 后添加 `?token=your-secret-token` 参数：
 
-如果启用了访问令牌验证，需要先输入正确的令牌才能使用服务。
+```
+https://your-worker-domain.workers.dev/?token=your-secret-token
+```
 
 ### 自定义设置
 
@@ -98,7 +101,7 @@ wrangler publish
 ### API 接口
 
 ```
-https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&config=配置文件链接
+https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&config=配置文件链接&token=your-secret-token
 ```
 
 #### 参数说明
@@ -114,6 +117,12 @@ https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&config=
 | token | 否 | your-secret-token | 访问令牌（如果启用了令牌验证） |
 
 ## 安全说明
+
+### 伪装功能
+
+本项目的根路径会伪装成 Nginx 默认欢迎页面，提高服务的隐蔽性。所有错误页面也会伪装成 Nginx 的相应错误页面。
+
+### 令牌验证
 
 如果您启用了访问令牌验证，请注意：
 
