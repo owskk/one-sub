@@ -13,6 +13,11 @@ export async function handleSubscriptionRequest(request, env) {
   const format = url.searchParams.get('format');
   
   try {
+    // 检查KV命名空间是否配置
+    if (!env.SUBSCRIPTIONS) {
+      throw new Error('KV命名空间未配置');
+    }
+    
     // 获取订阅数据
     let subscriptions = await getSubscriptions(env);
     

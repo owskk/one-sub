@@ -12,6 +12,11 @@ export async function handleAdminRequest(request, env) {
   const action = url.searchParams.get('action');
   
   try {
+    // 检查KV命名空间是否配置
+    if (!env.SUBSCRIPTIONS) {
+      throw new Error('KV命名空间未配置');
+    }
+    
     // 获取当前订阅数据
     let subscriptions = await getSubscriptions(env);
     
