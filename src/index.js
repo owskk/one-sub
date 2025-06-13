@@ -189,7 +189,7 @@ router.all('/sub', async (request, env) => {
     return new Response(generateHtml('配置错误', `
       <div class="error-container">
         <h1>配置错误</h1>
-        <p class="error">KV命名空间未配置。请确保在wrangler.json中正确配置了SUBSCRIPTIONS命名空间。</p>
+        <p class="error">KV命名空间未配置。请确保正确创建并配置了SUBSCRIPTIONS命名空间。</p>
         <div class="code-block">
           <h3>请参考以下步骤：</h3>
           <ol>
@@ -200,39 +200,6 @@ router.all('/sub', async (request, env) => {
         </div>
         <a href="/" class="btn">返回首页</a>
       </div>
-      
-      <style>
-        .error-container {
-          text-align: center;
-          padding: 40px 20px;
-        }
-        
-        .error {
-          color: var(--danger-color);
-          font-size: 1.1rem;
-          margin-bottom: 30px;
-        }
-        
-        .code-block {
-          background-color: #f8f9fa;
-          border-radius: 8px;
-          padding: 20px;
-          text-align: left;
-          margin: 20px 0;
-          border: 1px solid var(--border-color);
-        }
-        
-        .code-block ol {
-          margin-left: 20px;
-        }
-        
-        code {
-          background-color: #e9ecef;
-          padding: 3px 6px;
-          border-radius: 4px;
-          font-family: monospace;
-        }
-      </style>
     `), {
       status: 500,
       headers: { 'Content-Type': 'text/html;charset=UTF-8' }
@@ -261,16 +228,26 @@ export default {
     }
     
     try {
-      // 创建内存KV存储作为备用
+      // 检查KV命名空间是否配置
       if (!env.SUBSCRIPTIONS) {
-        console.log('KV命名空间未配置，创建内存KV存储作为备用');
-        env.SUBSCRIPTIONS = createMemoryKVStore();
-        
-        // 初始化订阅数据
-        const initialData = {
-          sources: []
-        };
-        await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(initialData));
+        return new Response(generateHtml('配置错误', `
+          <div class="error-container">
+            <h1>配置错误</h1>
+            <p class="error">KV命名空间未配置。请确保正确创建并配置了SUBSCRIPTIONS命名空间。</p>
+            <div class="code-block">
+              <h3>请参考以下步骤：</h3>
+              <ol>
+                <li>创建KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS</code></li>
+                <li>创建预览KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS --preview</code></li>
+                <li>更新wrangler.json文件中的KV命名空间ID</li>
+              </ol>
+            </div>
+            <a href="/" class="btn">返回首页</a>
+          </div>
+        `), {
+          status: 500,
+          headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+        });
       }
       
       // 尝试从静态资源中获取
@@ -323,34 +300,4 @@ export default {
       });
     }
   }
-};
-
-/**
- * 创建内存KV存储作为备用
- * @returns {Object} - 内存KV存储对象
- */
-function createMemoryKVStore() {
-  const store = new Map();
-  
-  return {
-    get: async (key) => {
-      console.log(`[内存KV] 获取键: ${key}`);
-      return store.get(key);
-    },
-    put: async (key, value) => {
-      console.log(`[内存KV] 存储键: ${key}`);
-      store.set(key, value);
-      return true;
-    },
-    delete: async (key) => {
-      console.log(`[内存KV] 删除键: ${key}`);
-      return store.delete(key);
-    },
-    list: async () => {
-      console.log('[内存KV] 列出所有键');
-      return {
-        keys: Array.from(store.keys()).map(key => ({ name: key }))
-      };
-    }
-  };
-} 
+}; 
