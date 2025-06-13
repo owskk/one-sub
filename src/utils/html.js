@@ -15,88 +15,331 @@ export function generateHtml(title, content) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <style>
+    :root {
+      --primary-color: #1e88e5;
+      --primary-dark: #1565c0;
+      --success-color: #43a047;
+      --success-dark: #2e7d32;
+      --danger-color: #e53935;
+      --danger-dark: #c62828;
+      --text-color: #333;
+      --bg-color: #f5f7fa;
+      --card-bg: #fff;
+      --border-color: #e0e0e0;
+    }
+    
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       line-height: 1.6;
-      color: #333;
+      color: var(--text-color);
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
-      background-color: #f8f9fa;
+      background-color: var(--bg-color);
     }
+    
     h1, h2, h3 {
-      color: #0056b3;
+      color: var(--primary-color);
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
     }
+    
+    h1 {
+      font-size: 2rem;
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    
     .container {
-      background-color: #fff;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     }
+    
     .btn {
       display: inline-block;
-      padding: 8px 16px;
-      background-color: #0056b3;
+      padding: 10px 18px;
+      background-color: var(--primary-color);
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
       text-decoration: none;
       font-size: 14px;
       margin: 5px 0;
+      transition: all 0.2s ease;
+      font-weight: 500;
     }
+    
     .btn:hover {
-      background-color: #004494;
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
+    
     input, textarea, select {
       width: 100%;
-      padding: 8px;
+      padding: 12px;
       margin: 8px 0;
-      border: 1px solid #ddd;
-      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
       box-sizing: border-box;
+      font-size: 14px;
+      transition: border 0.2s ease;
     }
+    
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2);
+    }
+    
     textarea {
       height: 150px;
       resize: vertical;
     }
+    
     .card {
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 15px;
-      margin-bottom: 15px;
-      background-color: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      background-color: var(--card-bg);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+    
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+    
     .qrcode {
       text-align: center;
-      margin: 20px 0;
+      margin: 30px 0;
+      padding: 20px;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     }
+    
+    .qrcode img {
+      max-width: 200px;
+      height: auto;
+    }
+    
     .copy-btn {
-      background-color: #28a745;
+      background-color: var(--success-color);
       margin-left: 10px;
     }
+    
     .copy-btn:hover {
-      background-color: #218838;
+      background-color: var(--success-dark);
     }
+    
     .subscription-url {
       word-break: break-all;
       background-color: #f8f9fa;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      font-family: monospace;
+      font-size: 14px;
+      margin: 10px 0;
     }
+    
     .client-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    .client-item {
+      padding: 15px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background-color: var(--card-bg);
+      transition: transform 0.2s ease;
+    }
+    
+    .client-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .client-item h3 {
+      margin-top: 0;
+      color: var(--primary-color);
+      font-size: 1.2rem;
+    }
+    
+    .tabs {
       display: flex;
-      flex-wrap: wrap;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    
+    .tab:hover {
+      color: var(--primary-color);
+    }
+    
+    .tab.active {
+      border-bottom: 3px solid var(--primary-color);
+      color: var(--primary-color);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .notification {
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 6px;
+      font-weight: 500;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .notification.success {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      border-left: 4px solid #43a047;
+    }
+    
+    .notification.error {
+      background-color: #ffebee;
+      color: #c62828;
+      border-left: 4px solid #e53935;
+    }
+    
+    .notification.info {
+      background-color: #e3f2fd;
+      color: #1565c0;
+      border-left: 4px solid #1e88e5;
+    }
+    
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      color: white;
+      margin-top: 15px;
+      font-weight: 500;
+    }
+    
+    .button-group {
+      display: flex;
       gap: 10px;
       margin-top: 15px;
     }
-    .client-item {
-      flex: 1 0 200px;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background-color: #f8f9fa;
+    
+    .btn.primary {
+      background-color: var(--success-color);
+    }
+    
+    .btn.primary:hover {
+      background-color: var(--success-dark);
+    }
+    
+    .btn.danger {
+      background-color: var(--danger-color);
+    }
+    
+    .btn.danger:hover {
+      background-color: var(--danger-dark);
+    }
+    
+    .empty-message {
+      text-align: center;
+      padding: 30px;
+      color: #757575;
+      font-style: italic;
+    }
+    
+    .count {
+      font-size: 0.9rem;
+      color: #757575;
+      font-weight: normal;
+    }
+    
+    .login-form {
+      max-width: 500px;
+      margin: 30px auto;
+      padding: 25px;
+    }
+    
+    .login-form h3 {
+      margin-top: 0;
+      text-align: center;
+    }
+    
+    .login-form .btn {
+      width: 100%;
+      margin-top: 15px;
+      padding: 12px;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+      }
+      
+      .client-list {
+        grid-template-columns: 1fr;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+      }
     }
   </style>
 </head>
@@ -106,17 +349,25 @@ export function generateHtml(title, content) {
   </div>
   <script>
     function copyToClipboard(text, btnId) {
-      navigator.clipboard.writeText(text).then(() => {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      
+      try {
+        document.execCommand('copy');
         const btn = document.getElementById(btnId);
         const originalText = btn.textContent;
         btn.textContent = '已复制';
         setTimeout(() => {
           btn.textContent = originalText;
         }, 2000);
-      }).catch(err => {
+      } catch (err) {
         console.error('复制失败:', err);
         alert('复制失败，请手动复制');
-      });
+      }
+      
+      document.body.removeChild(textArea);
     }
   </script>
 </body>
@@ -142,7 +393,7 @@ export function generateAdminPage(subscriptions, adminUrl) {
           ${source.addedAt ? `<p>添加时间: ${new Date(source.addedAt).toLocaleString()}</p>` : ''}
           <p>
             <button class="btn" onclick="testSource('url', '${escapedUrl}')">测试</button>
-            <button class="btn" onclick="deleteSource(${index})">删除</button>
+            <button class="btn danger" onclick="deleteSource(${index})">删除</button>
           </p>
         </div>
       `;
@@ -154,7 +405,7 @@ export function generateAdminPage(subscriptions, adminUrl) {
           <p>内容: <span class="subscription-url">${source.content}</span></p>
           ${source.addedAt ? `<p>添加时间: ${new Date(source.addedAt).toLocaleString()}</p>` : ''}
           <p>
-            <button class="btn" onclick="deleteSource(${index})">删除</button>
+            <button class="btn danger" onclick="deleteSource(${index})">删除</button>
           </p>
         </div>
       `;
@@ -198,110 +449,13 @@ export function generateAdminPage(subscriptions, adminUrl) {
       <div class="loading-text">处理中...</div>
     </div>
     
-    <style>
-      .button-group {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-      }
-      .btn.primary {
-        background-color: #28a745;
-      }
-      .btn.primary:hover {
-        background-color: #218838;
-      }
-      .tabs {
-        display: flex;
-        margin-bottom: 15px;
-      }
-      .tab {
-        flex: 1;
-        text-align: center;
-        padding: 10px;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-      }
-      .tab.active {
-        border-bottom: 2px solid #0056b3;
-        font-weight: bold;
-      }
-      .tab-content {
-        display: none;
-      }
-      .tab-content.active {
-        display: block;
-      }
-      .notification {
-        padding: 15px;
-        margin-bottom: 20px;
-        border-radius: 4px;
-        font-weight: bold;
-      }
-      .notification.success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-      }
-      .notification.error {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-      }
-      .notification.info {
-        background-color: #d1ecf1;
-        color: #0c5460;
-        border: 1px solid #bee5eb;
-      }
-      .empty-message {
-        text-align: center;
-        padding: 20px;
-        color: #6c757d;
-      }
-      .count {
-        font-size: 16px;
-        color: #6c757d;
-        font-weight: normal;
-      }
-      .loading-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-      }
-      .spinner {
-        border: 4px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top: 4px solid #fff;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-      }
-      .loading-text {
-        color: white;
-        margin-top: 10px;
-        font-size: 18px;
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    </style>
-    
     <script>
-      function showNotification(message, type = 'info') {
+      function showNotification(message, type) {
         const notification = document.getElementById('notification');
         notification.textContent = message;
         notification.className = 'notification ' + type;
         notification.style.display = 'block';
         
-        // 5秒后自动隐藏
         setTimeout(() => {
           notification.style.display = 'none';
         }, 5000);
@@ -328,7 +482,7 @@ export function generateAdminPage(subscriptions, adminUrl) {
         
         // 激活选中的标签和内容
         document.getElementById(tabName + '-tab').classList.add('active');
-        document.querySelector('.tab[onclick="switchTab(\\''+tabName+'\\')"]').classList.add('active');
+        document.querySelector('.tab[onclick="switchTab(\\'' + tabName + '\\')"]').classList.add('active');
       }
       
       function testSubscriptionUrl() {
@@ -509,11 +663,17 @@ export function generateAdminPage(subscriptions, adminUrl) {
  */
 export async function generateSubscriptionPage(subscriptionUrl, clientUrls) {
   // 生成订阅二维码
-  const qrCodeDataUrl = await QRCode.toDataURL(subscriptionUrl, {
-    errorCorrectionLevel: 'H',
-    margin: 1,
-    width: 200
-  });
+  let qrCodeDataUrl;
+  try {
+    qrCodeDataUrl = await QRCode.toDataURL(subscriptionUrl, {
+      errorCorrectionLevel: 'H',
+      margin: 1,
+      width: 200
+    });
+  } catch (error) {
+    console.error('生成二维码失败:', error);
+    qrCodeDataUrl = ''; // 如果生成失败，使用空字符串
+  }
   
   const clientItems = Object.entries(clientUrls).map(([client, url]) => {
     const btnId = `copy-${client}`;
@@ -529,18 +689,26 @@ export async function generateSubscriptionPage(subscriptionUrl, clientUrls) {
   return generateHtml('订阅信息', `
     <h1>订阅信息</h1>
     
-    <h2>通用订阅链接</h2>
-    <div class="subscription-url">${subscriptionUrl}</div>
-    <button id="copy-main" class="btn copy-btn" onclick="copyToClipboard('${subscriptionUrl}', 'copy-main')">复制链接</button>
+    <div class="card">
+      <h2>通用订阅链接</h2>
+      <div class="subscription-url">${subscriptionUrl}</div>
+      <button id="copy-main" class="btn copy-btn" onclick="copyToClipboard('${subscriptionUrl}', 'copy-main')">复制链接</button>
+    </div>
     
+    ${qrCodeDataUrl ? `
     <div class="qrcode">
       <h2>订阅二维码</h2>
       <img src="${qrCodeDataUrl}" alt="订阅二维码">
     </div>
+    ` : ''}
     
     <h2>客户端订阅链接</h2>
     <div class="client-list">
       ${clientItems}
     </div>
+    
+    <p style="text-align: center; margin-top: 30px;">
+      <a href="/" class="btn">返回首页</a>
+    </p>
   `);
 } 

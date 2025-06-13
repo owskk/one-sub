@@ -19,9 +19,10 @@ router.get('/', async (request, env) => {
     console.error('获取首页失败:', error);
     // 如果静态资源不可用，返回简单的HTML页面
     return new Response(generateHtml('订阅转换', `
-      <h1>订阅转换服务</h1>
-      <p>这是一个用于聚合和转换订阅的Cloudflare Worker服务。</p>
-      <p>请使用管理员或访客令牌访问相应功能。</p>
+      <div class="hero">
+        <h1>One Sub 订阅转换</h1>
+        <p class="subtitle">聚合和转换多种代理订阅的Cloudflare Worker服务</p>
+      </div>
       
       <div class="login-form card">
         <div class="tabs">
@@ -31,16 +32,88 @@ router.get('/', async (request, env) => {
         
         <div id="visitor-tab" class="tab-content active">
           <h3>访客登录</h3>
+          <p>使用访客令牌查看订阅信息</p>
           <input type="password" id="visitor-token" placeholder="请输入访客令牌">
-          <button class="btn" onclick="accessSubscription('visitor')">访问订阅</button>
+          <button class="btn primary" onclick="accessSubscription('visitor')">访问订阅</button>
         </div>
         
         <div id="admin-tab" class="tab-content">
           <h3>管理员登录</h3>
+          <p>使用管理员令牌管理订阅源</p>
           <input type="password" id="admin-token" placeholder="请输入管理员令牌">
-          <button class="btn" onclick="accessSubscription('admin')">管理订阅</button>
+          <button class="btn primary" onclick="accessSubscription('admin')">管理订阅</button>
         </div>
       </div>
+      
+      <div class="features">
+        <div class="feature-card">
+          <h3>订阅聚合</h3>
+          <p>支持多种订阅源聚合，包括URL链接和直接节点</p>
+        </div>
+        <div class="feature-card">
+          <h3>格式转换</h3>
+          <p>支持转换为多种客户端格式，如Clash、Shadowrocket、Quantumult等</p>
+        </div>
+        <div class="feature-card">
+          <h3>安全可靠</h3>
+          <p>使用Cloudflare Workers，高速稳定且安全</p>
+        </div>
+      </div>
+      
+      <footer>
+        <p>© ${new Date().getFullYear()} One Sub - 基于Cloudflare Workers构建</p>
+      </footer>
+      
+      <style>
+        .hero {
+          text-align: center;
+          margin-bottom: 40px;
+        }
+        
+        .hero h1 {
+          font-size: 2.5rem;
+          margin-bottom: 10px;
+          color: var(--primary-color);
+        }
+        
+        .subtitle {
+          font-size: 1.2rem;
+          color: #666;
+          margin-bottom: 30px;
+        }
+        
+        .features {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 20px;
+          margin: 40px 0;
+        }
+        
+        .feature-card {
+          padding: 25px;
+          border-radius: 8px;
+          background-color: var(--card-bg);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s ease;
+        }
+        
+        .feature-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .feature-card h3 {
+          color: var(--primary-color);
+          margin-top: 0;
+        }
+        
+        footer {
+          margin-top: 50px;
+          text-align: center;
+          color: #666;
+          font-size: 0.9rem;
+        }
+      </style>
       
       <script>
         function switchTab(tabName) {
@@ -86,23 +159,80 @@ router.all('/sub', async (request, env) => {
   const { authenticated, isAdmin } = verifyToken(request, env.ADMIN_TOKEN, env.VISITOR_TOKEN);
   
   if (!authenticated) {
-    return new Response('未授权访问', {
+    return new Response(generateHtml('未授权访问', `
+      <div class="error-container">
+        <h1>未授权访问</h1>
+        <p class="error">您提供的访问令牌无效</p>
+        <a href="/" class="btn">返回首页</a>
+      </div>
+      
+      <style>
+        .error-container {
+          text-align: center;
+          padding: 40px 20px;
+        }
+        
+        .error {
+          color: var(--danger-color);
+          font-size: 1.1rem;
+          margin-bottom: 30px;
+        }
+      </style>
+    `), {
       status: 401,
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
     });
   }
   
   // 检查并自动创建KV命名空间
   if (!env.SUBSCRIPTIONS) {
     return new Response(generateHtml('配置错误', `
-      <h1>配置错误</h1>
-      <p class="error">KV命名空间未配置。请确保在wrangler.toml中正确配置了SUBSCRIPTIONS命名空间。</p>
-      <p>请参考以下步骤：</p>
-      <ol>
-        <li>创建KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS</code></li>
-        <li>创建预览KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS --preview</code></li>
-        <li>更新wrangler.toml文件中的KV命名空间ID</li>
-      </ol>
+      <div class="error-container">
+        <h1>配置错误</h1>
+        <p class="error">KV命名空间未配置。请确保在wrangler.json中正确配置了SUBSCRIPTIONS命名空间。</p>
+        <div class="code-block">
+          <h3>请参考以下步骤：</h3>
+          <ol>
+            <li>创建KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS</code></li>
+            <li>创建预览KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS --preview</code></li>
+            <li>更新wrangler.json文件中的KV命名空间ID</li>
+          </ol>
+        </div>
+        <a href="/" class="btn">返回首页</a>
+      </div>
+      
+      <style>
+        .error-container {
+          text-align: center;
+          padding: 40px 20px;
+        }
+        
+        .error {
+          color: var(--danger-color);
+          font-size: 1.1rem;
+          margin-bottom: 30px;
+        }
+        
+        .code-block {
+          background-color: #f8f9fa;
+          border-radius: 8px;
+          padding: 20px;
+          text-align: left;
+          margin: 20px 0;
+          border: 1px solid var(--border-color);
+        }
+        
+        .code-block ol {
+          margin-left: 20px;
+        }
+        
+        code {
+          background-color: #e9ecef;
+          padding: 3px 6px;
+          border-radius: 4px;
+          font-family: monospace;
+        }
+      </style>
     `), {
       status: 500,
       headers: { 'Content-Type': 'text/html;charset=UTF-8' }
@@ -160,8 +290,24 @@ export default {
     } catch (error) {
       console.error('处理请求失败:', error);
       return new Response(generateHtml('服务器错误', `
-        <h1>服务器错误</h1>
-        <p class="error">${error.message}</p>
+        <div class="error-container">
+          <h1>服务器错误</h1>
+          <p class="error">${error.message}</p>
+          <a href="/" class="btn">返回首页</a>
+        </div>
+        
+        <style>
+          .error-container {
+            text-align: center;
+            padding: 40px 20px;
+          }
+          
+          .error {
+            color: var(--danger-color);
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+          }
+        </style>
       `), {
         status: 500,
         headers: { 
