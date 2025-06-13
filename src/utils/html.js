@@ -133,6 +133,7 @@ export function generateHtml(title, content) {
 export function generateAdminPage(subscriptions, adminUrl) {
   const sourcesList = subscriptions.sources.map((source, index) => {
     if (source.type === 'url') {
+      const escapedUrl = source.url.replace(/'/g, "\\'").replace(/"/g, "&quot;");
       return `
         <div class="card">
           <h3>订阅源 ${index + 1}</h3>
@@ -140,7 +141,7 @@ export function generateAdminPage(subscriptions, adminUrl) {
           <p>URL: <span class="subscription-url">${source.url}</span></p>
           ${source.addedAt ? `<p>添加时间: ${new Date(source.addedAt).toLocaleString()}</p>` : ''}
           <p>
-            <button class="btn" onclick="testSource('url', '${source.url.replace(/'/g, "\\'")}')">测试</button>
+            <button class="btn" onclick="testSource('url', '${escapedUrl}')">测试</button>
             <button class="btn" onclick="deleteSource(${index})">删除</button>
           </p>
         </div>
@@ -327,7 +328,7 @@ export function generateAdminPage(subscriptions, adminUrl) {
         
         // 激活选中的标签和内容
         document.getElementById(tabName + '-tab').classList.add('active');
-        document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        document.querySelector('.tab[onclick="switchTab(\\''+tabName+'\\')"]').classList.add('active');
       }
       
       function testSubscriptionUrl() {
@@ -353,7 +354,7 @@ export function generateAdminPage(subscriptions, adminUrl) {
         .then(data => {
           hideLoading();
           if (data.success) {
-            showNotification(`测试成功，共有 ${data.nodeCount} 个节点`, 'success');
+            showNotification('测试成功，共有 ' + data.nodeCount + ' 个节点', 'success');
           } else {
             showNotification('测试失败: ' + data.error, 'error');
           }
@@ -386,7 +387,7 @@ export function generateAdminPage(subscriptions, adminUrl) {
         .then(data => {
           hideLoading();
           if (data.success) {
-            showNotification(`测试成功，共有 ${data.nodeCount} 个节点`, 'success');
+            showNotification('测试成功，共有 ' + data.nodeCount + ' 个节点', 'success');
           } else {
             showNotification('测试失败: ' + data.error, 'error');
           }
