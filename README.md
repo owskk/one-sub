@@ -1,93 +1,104 @@
-# One-Sub
+# 订阅转换 Cloudflare Worker
 
-一个基于Cloudflare Workers的订阅转换和聚合服务。
+这是一个基于 Cloudflare Worker 的订阅转换工具，可以将各种代理订阅格式相互转换。
 
 ## 功能特点
 
-- **订阅聚合**：汇总多个订阅源（包括直接节点链接和订阅链接）
-- **订阅转换**：使用在线订阅转换后端进行格式转换
-- **访问控制**：支持管理员令牌和访客令牌
-- **KV存储**：使用Cloudflare KV存储订阅数据
-- **Web界面**：提供管理和查看订阅的Web界面
+- 支持多种订阅格式转换
+- 简单易用的 Web 界面
+- 低延迟，全球加速
+- 无需服务器，零成本部署
 
-## 部署指南
+## 支持的订阅格式
 
-### 前提条件
-
-- Cloudflare账号
-- Node.js和npm
-
-### 安装步骤
-
-1. 克隆仓库
-   ```bash
-   git clone https://github.com/yourusername/one-sub.git
-   cd one-sub
-   ```
-
-2. 安装依赖
-   ```bash
-   npm install
-   ```
-
-3. 创建KV命名空间
-   ```bash
-   npx wrangler kv:namespace create SUBSCRIPTIONS
-   npx wrangler kv:namespace create SUBSCRIPTIONS --preview
-   ```
-
-4. 更新`wrangler.toml`文件
-   - 将创建的KV命名空间ID填入`wrangler.toml`文件中
-   - 修改`ADMIN_TOKEN`和`VISITOR_TOKEN`为你自己的安全令牌
-
-5. 部署到Cloudflare Workers
-   ```bash
-   npx wrangler deploy
-   ```
-
-## 使用说明
-
-### 管理员功能
-
-- 访问`https://your-worker-url.workers.dev/sub?token=admin_token`
-- 添加和管理订阅源
-- 查看订阅链接和二维码
-
-### 访客功能
-
-- 访问`https://your-worker-url.workers.dev/sub?token=visitor_token`
-- 查看订阅链接和二维码
-- 获取各种客户端的订阅地址
-
-## 支持的客户端格式
+### 作为源格式
 
 - Clash
-- Shadowrocket
+- ClashR
 - Quantumult
-- QuantumultX
-- Surge
+- Quantumult X
 - Loon
+- SS (SIP002)
+- SS Android
+- SSD
+- SSR
 - Surfboard
+- Surge 2/3/4
+- V2Ray
+- Telegram HTTP/Socks5 链接
+
+### 作为目标格式
+
+- Clash
+- ClashR
+- Quantumult
+- Quantumult X
+- Loon
+- SS (SIP002)
+- SS Android
+- SSD
+- SSR
+- Surfboard
+- Surge 2/3/4
 - V2Ray
 
-## 开发
+## 部署方法
 
-### 本地开发
+### 准备工作
+
+1. 注册 [Cloudflare](https://dash.cloudflare.com/sign-up) 账号
+2. 安装 [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
 
 ```bash
-npx wrangler dev
+npm install -g wrangler
 ```
 
-### 测试
+### 部署步骤
 
-访问`http://localhost:8787`进行本地测试。
+1. 登录 Wrangler
 
-## 注意事项
+```bash
+wrangler login
+```
 
-- 请确保修改默认的`ADMIN_TOKEN`和`VISITOR_TOKEN`，以防止未授权访问
-- Cloudflare Workers免费版每天有10万次请求限制
-- KV存储有读写操作限制，请参考Cloudflare官方文档
+2. 发布 Worker
+
+```bash
+wrangler publish
+```
+
+3. 访问分配的域名（例如：https://sub-converter.your-name.workers.dev）
+
+## 使用方法
+
+### Web 界面
+
+直接访问 Worker 域名，使用 Web 界面生成转换链接。
+
+### API 接口
+
+```
+https://your-worker-domain.workers.dev/sub?target=clash&url=订阅链接&config=配置文件链接
+```
+
+#### 参数说明
+
+| 参数名 | 必选 | 示例 | 说明 |
+| ----- | --- | ---- | ---- |
+| target | 是 | clash | 目标订阅类型 |
+| url | 是 | https%3A%2F%2Fexample.com | 原始订阅链接，需要 URL 编码，多个链接用 \| 分隔 |
+| config | 否 | https%3A%2F%2Fexample.com%2Fconfig.ini | 配置文件链接，需要 URL 编码 |
+| emoji | 否 | true | 是否启用 Emoji |
+| new_name | 否 | true | 是否使用新命名 |
+
+## 后端服务
+
+本项目默认使用 `https://api.v1.mk` 作为后端服务。如需更改，请修改 `src/index.js` 中的 `DEFAULT_BACKEND` 常量。
+
+## 致谢
+
+本项目基于 [subconverter](https://github.com/tindy2013/subconverter) 提供的后端服务。
 
 ## 许可证
 
-MIT 
+MIT License 

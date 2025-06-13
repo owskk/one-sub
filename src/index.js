@@ -1,303 +1,307 @@
-import { Router } from 'itty-router';
-import { verifyToken } from './utils/auth';
-import { handleAdminRequest } from './handlers/admin';
-import { handleSubscriptionRequest } from './handlers/subscription';
-import { generateHtml } from './utils/html';
+/**
+ * 订阅转换 Cloudflare Worker
+ * 基于subconverter的订阅转换代理
+ */
 
-// 创建路由器
-const router = Router();
+// 配置默认后端
+const DEFAULT_BACKEND = 'https://api.v1.mk';
 
-// 主页路由
-router.get('/', async (request, env) => {
-  // 返回静态HTML页面
-  try {
-    const url = new URL(request.url);
-    const newUrl = new URL('/index.html', url.origin);
-    const indexRequest = new Request(newUrl.toString(), request);
-    return env.ASSETS.fetch(indexRequest);
-  } catch (error) {
-    console.error('获取首页失败:', error);
-    // 如果静态资源不可用，返回简单的HTML页面
-    return new Response(generateHtml('订阅转换', `
-      <div class="hero">
-        <h1>One Sub 订阅转换</h1>
-        <p class="subtitle">聚合和转换多种代理订阅的Cloudflare Worker服务</p>
-      </div>
-      
-      <div class="login-form card">
-        <div class="tabs">
-          <div class="tab active" onclick="switchTab('visitor')">访客登录</div>
-          <div class="tab" onclick="switchTab('admin')">管理员登录</div>
-        </div>
-        
-        <div id="visitor-tab" class="tab-content active">
-          <h3>访客模式</h3>
-          <p>使用访客令牌查看订阅信息</p>
-          <input type="password" id="visitor-token" placeholder="请输入访客令牌">
-          <button class="btn primary" onclick="accessSubscription('visitor')">访问订阅</button>
-        </div>
-        
-        <div id="admin-tab" class="tab-content">
-          <h3>管理员模式</h3>
-          <p>使用管理员令牌管理订阅源</p>
-          <input type="password" id="admin-token" placeholder="请输入管理员令牌">
-          <button class="btn primary" onclick="accessSubscription('admin')">管理订阅</button>
-        </div>
-      </div>
-      
-      <div class="features">
-        <div class="feature-card">
-          <h3>订阅聚合</h3>
-          <p>支持多种订阅源聚合，包括URL链接和直接节点</p>
-        </div>
-        <div class="feature-card">
-          <h3>格式转换</h3>
-          <p>支持转换为多种客户端格式，如Clash、Shadowrocket、Quantumult等</p>
-        </div>
-        <div class="feature-card">
-          <h3>安全可靠</h3>
-          <p>使用Cloudflare Workers，高速稳定且安全</p>
-        </div>
-      </div>
-      
-      <footer>
-        <p>© ${new Date().getFullYear()} One Sub - 基于Cloudflare Workers构建</p>
-      </footer>
-      
-      <style>
-        .hero {
-          text-align: center;
-          margin-bottom: 40px;
-        }
-        
-        .hero h1 {
-          font-size: 2.5rem;
-          margin-bottom: 10px;
-          color: var(--primary-color);
-        }
-        
-        .subtitle {
-          font-size: 1.2rem;
-          color: #666;
-          margin-bottom: 30px;
-        }
-        
-        .features {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 20px;
-          margin: 40px 0;
-        }
-        
-        .feature-card {
-          padding: 25px;
-          border-radius: 8px;
-          background-color: var(--card-bg);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-          transition: transform 0.2s ease;
-        }
-        
-        .feature-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-        }
-        
-        .feature-card h3 {
-          color: var(--primary-color);
-          margin-top: 0;
-        }
-        
-        footer {
-          margin-top: 50px;
-          text-align: center;
-          color: #666;
-          font-size: 0.9rem;
-        }
-      </style>
-      
-      <script>
-        function switchTab(tabName) {
-          // 隐藏所有标签内容
-          document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-          });
-          
-          // 取消所有标签的激活状态
-          document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.remove('active');
-          });
-          
-          // 激活选中的标签和内容
-          document.getElementById(tabName + '-tab').classList.add('active');
-          document.querySelector('.tab[onclick="switchTab(\\'' + tabName + '\\')"]').classList.add('active');
-        }
-        
-        function accessSubscription(type) {
-          let token;
-          if (type === 'visitor') {
-            token = document.getElementById('visitor-token').value.trim();
-          } else {
-            token = document.getElementById('admin-token').value.trim();
-          }
-          
-          if (!token) {
-            alert('请输入访问令牌');
-            return;
-          }
-          
-          window.location.href = '/sub?token=' + token;
-        }
-      </script>
-    `), {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-    });
-  }
-});
+// 允许的目标格式
+const ALLOWED_TARGETS = [
+  'clash', 'clashr', 'quan', 'quanx', 'loon', 'ss', 'sssub',
+  'ssr', 'ssd', 'surfboard', 'v2ray',
+  'surge', 'surge&ver=2', 'surge&ver=3', 'surge&ver=4'
+];
 
-// 订阅路由
-router.all('/sub', async (request, env) => {
-  const { authenticated, isAdmin } = verifyToken(request, env.ADMIN_TOKEN, env.VISITOR_TOKEN);
+// HTML页面内容
+const HTML_CONTENT = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>订阅转换</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .checkbox-group {
+      margin-top: 10px;
+    }
+    .button-group {
+      margin-top: 20px;
+      text-align: center;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    .copy-btn {
+      background-color: #2196F3;
+      margin-top: 10px;
+    }
+    .copy-btn:hover {
+      background-color: #0b7dda;
+    }
+  </style>
+</head>
+<body>
+  <h1>订阅转换工具</h1>
   
-  if (!authenticated) {
-    return new Response(generateHtml('未授权访问', `
-      <div class="error-container">
-        <h1>未授权访问</h1>
-        <p class="error">您提供的访问令牌无效</p>
-        <a href="/" class="btn">返回首页</a>
-      </div>
-      
-      <style>
-        .error-container {
-          text-align: center;
-          padding: 40px 20px;
-        }
-        
-        .error {
-          color: var(--danger-color);
-          font-size: 1.1rem;
-          margin-bottom: 30px;
-        }
-      </style>
-    `), {
-      status: 401,
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-    });
-  }
+  <div class="form-group">
+    <label for="subUrl">订阅链接：</label>
+    <input type="text" id="subUrl" placeholder="请输入原始订阅链接，多个链接请用|分隔">
+  </div>
   
-  // 检查并自动创建KV命名空间
-  if (!env.SUBSCRIPTIONS) {
-    return new Response(generateHtml('配置错误', `
-      <div class="error-container">
-        <h1>配置错误</h1>
-        <p class="error">KV命名空间未配置。请确保正确创建并配置了SUBSCRIPTIONS命名空间。</p>
-        <div class="code-block">
-          <h3>请参考以下步骤：</h3>
-          <ol>
-            <li>创建KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS</code></li>
-            <li>创建预览KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS --preview</code></li>
-            <li>更新wrangler.json文件中的KV命名空间ID</li>
-          </ol>
-        </div>
-        <a href="/" class="btn">返回首页</a>
-      </div>
-    `), {
-      status: 500,
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-    });
-  }
+  <div class="form-group">
+    <label for="target">目标格式：</label>
+    <select id="target">
+      <option value="clash">Clash</option>
+      <option value="clashr">ClashR</option>
+      <option value="quan">Quantumult</option>
+      <option value="quanx">Quantumult X</option>
+      <option value="loon">Loon</option>
+      <option value="ss">SS (SIP002)</option>
+      <option value="sssub">SS Android</option>
+      <option value="ssr">SSR</option>
+      <option value="ssd">SSD</option>
+      <option value="surfboard">Surfboard</option>
+      <option value="surge&ver=4">Surge 4</option>
+      <option value="surge&ver=3">Surge 3</option>
+      <option value="surge&ver=2">Surge 2</option>
+      <option value="v2ray">V2Ray</option>
+    </select>
+  </div>
   
-  if (isAdmin) {
-    return handleAdminRequest(request, env);
-  } else {
-    return handleSubscriptionRequest(request, env);
-  }
-});
+  <div class="form-group">
+    <label for="config">配置文件：</label>
+    <input type="text" id="config" placeholder="可选，配置文件链接">
+  </div>
+  
+  <div class="checkbox-group">
+    <input type="checkbox" id="emoji" checked>
+    <label for="emoji" style="display: inline;">启用 Emoji</label>
+  </div>
+  
+  <div class="checkbox-group">
+    <input type="checkbox" id="newName" checked>
+    <label for="newName" style="display: inline;">使用新命名</label>
+  </div>
+  
+  <div class="button-group">
+    <button id="convertBtn">生成订阅链接</button>
+  </div>
+  
+  <div class="result" id="result" style="display: none;">
+    <h3>转换结果：</h3>
+    <p id="resultUrl"></p>
+    <button class="copy-btn" id="copyBtn">复制链接</button>
+  </div>
 
-// 处理请求
-export default {
-  async fetch(request, env, ctx) {
-    // 处理CORS
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        }
+  <script>
+    document.getElementById('convertBtn').addEventListener('click', function() {
+      const subUrl = encodeURIComponent(document.getElementById('subUrl').value.trim());
+      const target = document.getElementById('target').value;
+      const config = encodeURIComponent(document.getElementById('config').value.trim());
+      const emoji = document.getElementById('emoji').checked;
+      const newName = document.getElementById('newName').checked;
+      
+      if (!subUrl) {
+        alert('请输入订阅链接');
+        return;
+      }
+      
+      // 构建转换URL
+      let convertUrl = \`\${window.location.origin}/sub?target=\${target}&url=\${subUrl}\`;
+      
+      if (config) {
+        convertUrl += \`&config=\${config}\`;
+      }
+      
+      if (emoji) {
+        convertUrl += '&emoji=true';
+      }
+      
+      if (newName) {
+        convertUrl += '&new_name=true';
+      }
+      
+      document.getElementById('resultUrl').textContent = convertUrl;
+      document.getElementById('result').style.display = 'block';
+    });
+    
+    document.getElementById('copyBtn').addEventListener('click', function() {
+      const resultUrl = document.getElementById('resultUrl').textContent;
+      
+      navigator.clipboard.writeText(resultUrl).then(function() {
+        alert('链接已复制到剪贴板');
+      }, function(err) {
+        console.error('复制失败: ', err);
+        
+        // 备用复制方法
+        const textarea = document.createElement('textarea');
+        textarea.value = resultUrl;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('链接已复制到剪贴板');
       });
+    });
+  </script>
+</body>
+</html>`;
+
+/**
+ * 处理请求
+ */
+async function handleRequest(request) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  
+  // 如果是根路径，返回HTML页面
+  if (path === '/' || path === '') {
+    return new Response(HTML_CONTENT, {
+      headers: {
+        'Content-Type': 'text/html;charset=utf-8',
+      },
+    });
+  }
+  
+  // 如果是订阅转换请求
+  if (path === '/sub') {
+    const params = url.searchParams;
+    
+    // 获取参数
+    const target = params.get('target');
+    const subUrl = params.get('url');
+    const config = params.get('config');
+    
+    // 验证必要参数
+    if (!target || !subUrl) {
+      return new Response('缺少必要参数: target 和 url 是必须的', { status: 400 });
+    }
+    
+    // 验证目标格式
+    if (!ALLOWED_TARGETS.includes(target) && !target.startsWith('surge&ver=')) {
+      return new Response('不支持的目标格式', { status: 400 });
+    }
+    
+    // 构建后端请求URL
+    const backendUrl = new URL('/sub', DEFAULT_BACKEND);
+    
+    // 复制所有参数
+    for (const [key, value] of params.entries()) {
+      backendUrl.searchParams.append(key, value);
     }
     
     try {
-      // 检查KV命名空间是否配置
-      if (!env.SUBSCRIPTIONS) {
-        return new Response(generateHtml('配置错误', `
-          <div class="error-container">
-            <h1>配置错误</h1>
-            <p class="error">KV命名空间未配置。请确保正确创建并配置了SUBSCRIPTIONS命名空间。</p>
-            <div class="code-block">
-              <h3>请参考以下步骤：</h3>
-              <ol>
-                <li>创建KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS</code></li>
-                <li>创建预览KV命名空间：<code>npx wrangler kv:namespace create SUBSCRIPTIONS --preview</code></li>
-                <li>更新wrangler.json文件中的KV命名空间ID</li>
-              </ol>
-            </div>
-            <a href="/" class="btn">返回首页</a>
-          </div>
-        `), {
-          status: 500,
-          headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-        });
-      }
+      // 发送请求到后端
+      const response = await fetch(backendUrl.toString(), {
+        headers: {
+          'User-Agent': request.headers.get('User-Agent') || 'SubConverter-Worker',
+        },
+      });
       
-      // 尝试从静态资源中获取
-      const url = new URL(request.url);
-      if (url.pathname !== '/' && !url.pathname.startsWith('/sub') && env.ASSETS) {
-        try {
-          return await env.ASSETS.fetch(request);
-        } catch (e) {
-          // 如果静态资源不存在，继续处理其他路由
-        }
-      }
+      // 获取原始响应
+      const originalResponse = new Response(response.body, response);
+      
+      // 创建新的响应对象，添加自定义头
+      const newResponse = new Response(originalResponse.body, {
+        status: originalResponse.status,
+        statusText: originalResponse.statusText,
+        headers: originalResponse.headers,
+      });
       
       // 添加CORS头
-      const response = await router.handle(request, env, ctx);
-      const headers = new Headers(response.headers);
-      headers.set('Access-Control-Allow-Origin', '*');
+      newResponse.headers.set('Access-Control-Allow-Origin', '*');
+      newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
       
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers
-      });
+      // 添加缓存控制
+      newResponse.headers.set('Cache-Control', 'public, max-age=600');
+      
+      return newResponse;
     } catch (error) {
-      console.error('处理请求失败:', error);
-      return new Response(generateHtml('服务器错误', `
-        <div class="error-container">
-          <h1>服务器错误</h1>
-          <p class="error">${error.message}</p>
-          <a href="/" class="btn">返回首页</a>
-        </div>
-        
-        <style>
-          .error-container {
-            text-align: center;
-            padding: 40px 20px;
-          }
-          
-          .error {
-            color: var(--danger-color);
-            font-size: 1.1rem;
-            margin-bottom: 30px;
-          }
-        </style>
-      `), {
-        status: 500,
-        headers: { 
-          'Content-Type': 'text/html;charset=UTF-8',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
+      return new Response(`请求处理错误: ${error.message}`, { status: 500 });
     }
   }
-}; 
+  
+  // 其他路径返回404
+  return new Response('页面不存在', { status: 404 });
+}
+
+/**
+ * 处理OPTIONS请求
+ */
+function handleOptions(request) {
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
+/**
+ * 处理所有请求
+ */
+addEventListener('fetch', event => {
+  const request = event.request;
+  
+  // 处理OPTIONS请求
+  if (request.method === 'OPTIONS') {
+    event.respondWith(handleOptions(request));
+    return;
+  }
+  
+  // 处理GET请求
+  if (request.method === 'GET') {
+    event.respondWith(handleRequest(request));
+    return;
+  }
+  
+  // 其他请求方法不支持
+  event.respondWith(
+    new Response('不支持的请求方法', { status: 405 })
+  );
+}); 
