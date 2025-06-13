@@ -70,26 +70,34 @@ export async function handleAdminRequest(request, env) {
  * @returns {Promise<Object>} - 订阅数据
  */
 async function getSubscriptions(env) {
-  let subscriptions = await env.SUBSCRIPTIONS.get('subscriptions');
-  if (!subscriptions) {
-    // 初始化订阅数据
-    subscriptions = {
-      sources: []
-    };
-    await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
-  } else {
-    try {
-      subscriptions = JSON.parse(subscriptions);
-    } catch (error) {
-      console.error('解析订阅数据失败:', error);
-      // 重置订阅数据
+  try {
+    let subscriptions = await env.SUBSCRIPTIONS.get('subscriptions');
+    if (!subscriptions) {
+      // 初始化订阅数据
       subscriptions = {
         sources: []
       };
       await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+    } else {
+      try {
+        subscriptions = JSON.parse(subscriptions);
+      } catch (error) {
+        console.error('解析订阅数据失败:', error);
+        // 重置订阅数据
+        subscriptions = {
+          sources: []
+        };
+        await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+      }
     }
+    return subscriptions;
+  } catch (error) {
+    console.error('获取订阅数据失败:', error);
+    // 返回空数据结构，防止程序崩溃
+    return {
+      sources: []
+    };
   }
-  return subscriptions;
 }
 
 /**

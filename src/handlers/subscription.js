@@ -1,5 +1,6 @@
 import { aggregateSubscriptions, convertSubscription, getClientSubscriptionUrls } from '../utils/subscription';
 import { generateSubscriptionPage } from '../utils/html';
+import { generateHtml } from '../utils/html';
 
 /**
  * 处理订阅请求
@@ -17,9 +18,13 @@ export async function handleSubscriptionRequest(request, env) {
     
     // 检查是否有订阅源
     if (!subscriptions.sources || subscriptions.sources.length === 0) {
-      return new Response('没有配置订阅源，请先添加订阅源', {
+      return new Response(generateHtml('无订阅源', `
+        <h1>无订阅源</h1>
+        <p class="error">没有配置订阅源，请先添加订阅源</p>
+        <p><a href="/" class="btn">返回首页</a></p>
+      `), {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/html;charset=UTF-8' }
       });
     }
     
@@ -28,9 +33,13 @@ export async function handleSubscriptionRequest(request, env) {
     
     // 检查聚合后的内容是否为空
     if (!aggregatedContent.trim()) {
-      return new Response('聚合后的订阅内容为空，请检查订阅源是否有效', {
+      return new Response(generateHtml('订阅内容为空', `
+        <h1>订阅内容为空</h1>
+        <p class="error">聚合后的订阅内容为空，请检查订阅源是否有效</p>
+        <p><a href="/" class="btn">返回首页</a></p>
+      `), {
         status: 404,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/html;charset=UTF-8' }
       });
     }
     
@@ -42,9 +51,13 @@ export async function handleSubscriptionRequest(request, env) {
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
         });
       } catch (error) {
-        return new Response(`订阅转换失败: ${error.message}`, {
+        return new Response(generateHtml('转换失败', `
+          <h1>订阅转换失败</h1>
+          <p class="error">${error.message}</p>
+          <p><a href="/" class="btn">返回首页</a></p>
+        `), {
           status: 500,
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+          headers: { 'Content-Type': 'text/html;charset=UTF-8' }
         });
       }
     }
@@ -61,16 +74,24 @@ export async function handleSubscriptionRequest(request, env) {
         headers: { 'Content-Type': 'text/html;charset=UTF-8' }
       });
     } catch (error) {
-      return new Response(`生成订阅页面失败: ${error.message}`, {
+      return new Response(generateHtml('生成页面失败', `
+        <h1>生成订阅页面失败</h1>
+        <p class="error">${error.message}</p>
+        <p><a href="/" class="btn">返回首页</a></p>
+      `), {
         status: 500,
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/html;charset=UTF-8' }
       });
     }
   } catch (error) {
     console.error('处理订阅请求失败:', error);
-    return new Response('处理订阅请求失败: ' + error.message, {
+    return new Response(generateHtml('服务器错误', `
+      <h1>处理订阅请求失败</h1>
+      <p class="error">${error.message}</p>
+      <p><a href="/" class="btn">返回首页</a></p>
+    `), {
       status: 500,
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' }
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
     });
   }
 }
@@ -81,15 +102,32 @@ export async function handleSubscriptionRequest(request, env) {
  * @returns {Promise<Object>} - 订阅数据
  */
 async function getSubscriptions(env) {
-  let subscriptions = await env.SUBSCRIPTIONS.get('subscriptions');
-  if (!subscriptions) {
-    // 初始化订阅数据
-    subscriptions = {
+  try {
+    let subscriptions = await env.SUBSCRIPTIONS.get('subscriptions');
+    if (!subscriptions) {
+      // 初始化订阅数据
+      subscriptions = {
+        sources: []
+      };
+      await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+    } else {
+      try {
+        subscriptions = JSON.parse(subscriptions);
+      } catch (error) {
+        console.error('解析订阅数据失败:', error);
+        // 重置订阅数据
+        subscriptions = {
+          sources: []
+        };
+        await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+      }
+    }
+    return subscriptions;
+  } catch (error) {
+    console.error('获取订阅数据失败:', error);
+    // 返回空数据结构，防止程序崩溃
+    return {
       sources: []
     };
-    await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
-  } else {
-    subscriptions = JSON.parse(subscriptions);
   }
-  return subscriptions;
 } 

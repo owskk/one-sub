@@ -15,12 +15,30 @@ export async function aggregateSubscriptions(sources) {
       if (source.type === 'url') {
         // 获取远程订阅内容
         console.log(`正在获取订阅: ${source.url}`);
-        const response = await fetch(source.url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          },
-          timeout: 10000 // 10秒超时
-        });
+        let response;
+        try {
+          // 使用AbortController实现超时
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超时
+          
+          response = await fetch(source.url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            },
+            signal: controller.signal,
+            redirect: 'follow' // 自动跟随重定向
+          });
+          
+          clearTimeout(timeoutId);
+        } catch (fetchError) {
+          if (fetchError.name === 'AbortError') {
+            console.error(`获取订阅超时: ${source.url}`);
+          } else {
+            console.error(`获取订阅失败: ${source.url}, 错误: ${fetchError.message}`);
+          }
+          failCount++;
+          continue;
+        }
         
         if (!response.ok) {
           console.error(`获取订阅失败: ${source.url}, 状态码: ${response.status}`);
@@ -28,38 +46,73 @@ export async function aggregateSubscriptions(sources) {
           continue;
         }
         
-        const content = await response.text();
+        let content;
+        try {
+          content = await response.text();
+        } catch (textError) {
+          console.error(`读取订阅内容失败: ${source.url}, 错误: ${textError.message}`);
+          failCount++;
+          continue;
+        }
+        
         if (!content || content.trim() === '') {
           console.error(`订阅内容为空: ${source.url}`);
           failCount++;
           continue;
         }
         
-        // 解析订阅内容（这里假设是base64编码的）
+        // 解析订阅内容
         try {
-          const decodedContent = atob(content.trim());
-          const lines = decodedContent.split('\n');
-          let nodeCount = 0;
-          for (const line of lines) {
-            if (line.trim()) {
-              nodes.push(line);
-              nodeCount++;
+          // 尝试Base64解码
+          let decodedContent;
+          try {
+            decodedContent = atob(content.trim());
+          } catch (e) {
+            // 如果解码失败，使用原始内容
+            decodedContent = content;
+          }
+          
+          // 处理不同格式的订阅
+          if (decodedContent.startsWith('proxies:') || decodedContent.includes('- {name:')) {
+            // Clash格式
+            console.log(`检测到Clash格式订阅: ${source.url}`);
+            // 简单提取节点，实际应该使用YAML解析器
+            const lines = decodedContent.split('\n');
+            for (const line of lines) {
+              if (line.trim().startsWith('- {name:') || line.trim().startsWith('- name:')) {
+                nodes.push(line.trim());
+              }
+            }
+          } else {
+            // 标准格式，按行分割
+            const lines = decodedContent.split('\n');
+            for (const line of lines) {
+              if (line.trim()) {
+                nodes.push(line.trim());
+              }
             }
           }
-          console.log(`成功解析订阅(Base64): ${source.url}, 获取节点数: ${nodeCount}`);
-          successCount++;
+          
+          console.log(`成功解析订阅: ${source.url}, 获取节点数: ${nodes.length - successCount}`);
+          successCount = nodes.length;
         } catch (e) {
-          // 如果不是base64编码，直接按行分割
+          console.error(`解析订阅内容失败: ${source.url}, 错误: ${e.message}`);
+          
+          // 尝试直接按行分割原始内容
           const lines = content.split('\n');
-          let nodeCount = 0;
+          const startCount = nodes.length;
           for (const line of lines) {
             if (line.trim()) {
-              nodes.push(line);
-              nodeCount++;
+              nodes.push(line.trim());
             }
           }
-          console.log(`成功解析订阅(文本): ${source.url}, 获取节点数: ${nodeCount}`);
-          successCount++;
+          
+          if (nodes.length > startCount) {
+            console.log(`使用原始内容解析订阅: ${source.url}, 获取节点数: ${nodes.length - startCount}`);
+            successCount += (nodes.length - startCount);
+          } else {
+            failCount++;
+          }
         }
       } else if (source.type === 'node') {
         // 直接添加节点
@@ -113,18 +166,40 @@ export async function convertSubscription(content, targetType, apiUrl) {
     
     console.log(`请求转换API: ${apiUrl}`);
     
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 15000 // 15秒超时
-    });
+    // 使用AbortController实现超时
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20秒超时
+    
+    let response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        signal: controller.signal,
+        redirect: 'follow' // 自动跟随重定向
+      });
+      
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      if (fetchError.name === 'AbortError') {
+        throw new Error('转换API请求超时');
+      } else {
+        throw new Error(`转换API请求失败: ${fetchError.message}`);
+      }
+    }
     
     if (!response.ok) {
       throw new Error(`订阅转换失败，状态码: ${response.status}`);
     }
     
-    const result = await response.text();
+    let result;
+    try {
+      result = await response.text();
+    } catch (textError) {
+      throw new Error(`读取转换结果失败: ${textError.message}`);
+    }
+    
     if (!result || result.trim() === '') {
       throw new Error('转换结果为空');
     }
@@ -159,4 +234,4 @@ export function getClientSubscriptionUrls(baseUrl, token) {
     surfboard: `${base}&format=surfboard`,
     v2ray: `${base}&format=v2ray`
   };
-} 
+}
