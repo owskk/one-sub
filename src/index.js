@@ -31,14 +31,14 @@ router.get('/', async (request, env) => {
         </div>
         
         <div id="visitor-tab" class="tab-content active">
-          <h3>访客登录</h3>
+          <h3>访客模式</h3>
           <p>使用访客令牌查看订阅信息</p>
           <input type="password" id="visitor-token" placeholder="请输入访客令牌">
           <button class="btn primary" onclick="accessSubscription('visitor')">访问订阅</button>
         </div>
         
         <div id="admin-tab" class="tab-content">
-          <h3>管理员登录</h3>
+          <h3>管理员模式</h3>
           <p>使用管理员令牌管理订阅源</p>
           <input type="password" id="admin-token" placeholder="请输入管理员令牌">
           <button class="btn primary" onclick="accessSubscription('admin')">管理订阅</button>
@@ -265,6 +265,12 @@ export default {
       if (!env.SUBSCRIPTIONS) {
         console.log('KV命名空间未配置，创建内存KV存储作为备用');
         env.SUBSCRIPTIONS = createMemoryKVStore();
+        
+        // 初始化订阅数据
+        const initialData = {
+          sources: []
+        };
+        await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(initialData));
       }
       
       // 尝试从静态资源中获取

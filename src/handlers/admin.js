@@ -12,11 +12,6 @@ export async function handleAdminRequest(request, env) {
   const action = url.searchParams.get('action');
   
   try {
-    // 检查KV命名空间是否配置
-    if (!env.SUBSCRIPTIONS) {
-      throw new Error('KV命名空间未配置');
-    }
-    
     // 获取当前订阅数据
     let subscriptions = await getSubscriptions(env);
     
@@ -58,9 +53,24 @@ export async function handleAdminRequest(request, env) {
       });
     } else {
       return new Response(generateHtml('错误', `
-        <h1>处理请求出错</h1>
-        <p class="error">${error.message}</p>
-        <p><a href="${request.url.split('?')[0]}?token=${env.ADMIN_TOKEN}" class="btn">返回管理页面</a></p>
+        <div class="error-container">
+          <h1>处理请求出错</h1>
+          <p class="error">${error.message}</p>
+          <a href="${request.url.split('?')[0]}?token=${env.ADMIN_TOKEN}" class="btn">返回管理页面</a>
+        </div>
+        
+        <style>
+          .error-container {
+            text-align: center;
+            padding: 40px 20px;
+          }
+          
+          .error {
+            color: var(--danger-color);
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+          }
+        </style>
       `), {
         status: 500,
         headers: { 'Content-Type': 'text/html;charset=UTF-8' }
@@ -83,6 +93,7 @@ async function getSubscriptions(env) {
         sources: []
       };
       await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+      console.log('管理员：初始化订阅数据完成');
     } else {
       try {
         subscriptions = JSON.parse(subscriptions);
@@ -93,6 +104,7 @@ async function getSubscriptions(env) {
           sources: []
         };
         await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+        console.log('管理员：重置订阅数据完成');
       }
     }
     return subscriptions;
@@ -199,6 +211,7 @@ async function handleAddSource(request, env, subscriptions) {
     
     // 保存订阅数据
     await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+    console.log('添加订阅源成功');
     
     return new Response(JSON.stringify({
       success: true,
@@ -255,6 +268,7 @@ async function handleDeleteSource(request, env, subscriptions) {
     
     // 保存订阅数据
     await env.SUBSCRIPTIONS.put('subscriptions', JSON.stringify(subscriptions));
+    console.log('删除订阅源成功');
     
     return new Response(JSON.stringify({
       success: true,
@@ -309,12 +323,18 @@ async function handleTestSource(request, env) {
       
       // 测试订阅链接
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超时
+        
         const response = await fetch(data.url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
-          timeout: 10000 // 10秒超时
+          signal: controller.signal,
+          redirect: 'follow'
         });
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
           return new Response(JSON.stringify({
@@ -355,9 +375,10 @@ async function handleTestSource(request, env) {
           headers: { 'Content-Type': 'application/json' }
         });
       } catch (error) {
+        const errorMessage = error.name === 'AbortError' ? '请求超时' : error.message;
         return new Response(JSON.stringify({
           success: false,
-          error: '测试订阅失败: ' + error.message
+          error: '测试订阅失败: ' + errorMessage
         }), {
           headers: { 'Content-Type': 'application/json' }
         });
