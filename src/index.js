@@ -23,6 +23,24 @@ const COMMON_CONFIGS = [
   { name: 'ACL4SSR 全分组 多模式', value: 'https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/ACL4SSR_Online_Full_MultiMode.ini' }
 ];
 
+// 功能选项列表
+const FEATURE_OPTIONS = [
+  { name: 'Emoji', param: 'emoji', default: true, defaultValue: true },
+  { name: 'Clash新字段名', param: 'clash.new_field_name', default: true, defaultValue: true },
+  { name: '启用UDP', param: 'udp', default: false, defaultValue: true },
+  { name: '启用XUDP', param: 'xudp', default: false, defaultValue: true },
+  { name: '启用TFO', param: 'tfo', default: false, defaultValue: true },
+  { name: '基础节点排序', param: 'sort', default: false, defaultValue: true },
+  { name: 'Clash.DoH', param: 'clash.doh', default: false, defaultValue: true },
+  { name: 'Surge.DoH', param: 'surge.doh', default: false, defaultValue: true },
+  { name: '展开规则全文', param: 'expand', default: false, defaultValue: true },
+  { name: '跳过证书验证', param: 'skip_cert_verify', default: false, defaultValue: true },
+  { name: '过滤不支持节点', param: 'filter_deprecated', default: false, defaultValue: true },
+  { name: 'Sing-Box支持IPV6', param: 'singbox.ipv6', default: false, defaultValue: true },
+  { name: '插入节点类型', param: 'insert_type', default: false, defaultValue: true },
+  { name: '开启TLS_1.3', param: 'tls13', default: false, defaultValue: true }
+];
+
 // Nginx默认欢迎页面
 const NGINX_DEFAULT_PAGE = `<!DOCTYPE html>
 <html>
@@ -305,29 +323,57 @@ function generateHtmlContent(accessToken) {
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      padding: 20px;
-      line-height: 1.6;
+      padding: 10px;
+      line-height: 1.5;
       background-color: #f8f9fa;
+      color: #333;
     }
     .container {
       max-width: 800px;
       margin: 0 auto;
       background-color: #fff;
-      padding: 30px;
+      padding: 20px;
       border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.08);
     }
     h1 {
       text-align: center;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
+      color: #333;
+      font-weight: 600;
+      font-size: 1.8rem;
+    }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 8px;
       color: #333;
     }
     .form-label {
       font-weight: 500;
+      color: #333;
+      margin-bottom: 4px;
     }
     .form-text {
       color: #6c757d;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
+      margin-top: 3px;
+    }
+    .form-control, .form-select {
+      border-radius: 6px;
+      border-color: #dee2e6;
+      padding: 8px 12px;
+      font-size: 0.95rem;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: #80bdff;
+      box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.25);
+    }
+    .btn {
+      border-radius: 6px;
+      padding: 8px 15px;
+      font-weight: 500;
+      transition: all 0.2s ease;
     }
     .btn-primary {
       background-color: #4CAF50;
@@ -336,42 +382,151 @@ function generateHtmlContent(accessToken) {
     .btn-primary:hover {
       background-color: #45a049;
       border-color: #45a049;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .btn-secondary {
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+    .btn-secondary:hover {
+      background-color: #5a6268;
+      border-color: #5a6268;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
     .btn-copy {
       background-color: #2196F3;
       border-color: #2196F3;
+      color: white;
     }
     .btn-copy:hover {
       background-color: #0b7dda;
       border-color: #0b7dda;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
     .result-card {
-      margin-top: 30px;
-      border: 1px solid rgba(0, 0, 0, 0.125);
-      border-radius: 0.25rem;
-      padding: 20px;
+      margin-top: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 8px;
+      padding: 15px;
       background-color: #f9f9f9;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
     .result-url {
       word-break: break-all;
       background-color: #f1f1f1;
       padding: 10px;
-      border-radius: 5px;
+      border-radius: 6px;
       margin-bottom: 15px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      border: 1px solid #e0e0e0;
     }
     .advanced-options {
-      margin-top: 20px;
-      padding-top: 20px;
+      margin-top: 15px;
+      padding-top: 15px;
       border-top: 1px solid #dee2e6;
     }
     .footer {
-      margin-top: 30px;
+      margin-top: 20px;
       text-align: center;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       color: #6c757d;
     }
-    .token-input {
-      margin-bottom: 20px;
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .more-options-btn {
+      margin-bottom: 15px;
+      width: 100%;
+      background-color: #f0f0f0;
+      color: #333;
+      border: none;
+      font-weight: 500;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+    }
+    .more-options-btn:hover {
+      background-color: #e0e0e0;
+      color: #333;
+    }
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e9ecef;
+      font-size: 0.9rem;
+    }
+    .option-checkbox {
+      margin-right: 3px;
+    }
+    .option-select {
+      width: 70px;
+      margin-left: auto;
+      padding: 2px 6px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      height: 26px;
+    }
+    .form-check-input {
+      width: 16px;
+      height: 16px;
+      margin-top: 0;
+    }
+    .form-check-input:checked {
+      background-color: #4CAF50;
+      border-color: #4CAF50;
+    }
+    .form-section {
+      margin-bottom: 15px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .form-section:last-child {
+      border-bottom: none;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+    }
+    .alert-info {
+      background-color: #e7f3fe;
+      border-color: #b6d4fe;
+      color: #0a58ca;
+      border-radius: 6px;
+      padding: 10px 15px;
+      font-size: 0.9rem;
+    }
+    .alert-info p {
+      margin-bottom: 5px;
+    }
+    code {
+      background-color: #f0f0f0;
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: #d63384;
+      font-size: 0.85rem;
+    }
+    .mb-3 {
+      margin-bottom: 0.8rem !important;
+    }
+    .mb-2 {
+      margin-bottom: 0.5rem !important;
+    }
+    .mt-3 {
+      margin-top: 0.8rem !important;
+    }
+    .mt-4 {
+      margin-top: 1rem !important;
+    }
+    .mt-2 {
+      margin-top: 0.5rem !important;
     }
   </style>
 </head>
@@ -380,58 +535,67 @@ function generateHtmlContent(accessToken) {
     <h1>订阅转换工具</h1>
     
     <div id="converter-form">
-      <div class="mb-3">
-        <label for="subUrl" class="form-label">订阅链接</label>
-        <input type="text" class="form-control" id="subUrl" placeholder="请输入原始订阅链接，多个链接请用|分隔">
-        <div class="form-text">支持多种订阅格式，多个订阅请用 | 分隔</div>
+      <div class="form-section">
+        <div class="section-title">订阅链接</div>
+        <div class="mb-2">
+          <input type="text" class="form-control" id="subUrl" placeholder="请输入原始订阅链接，多个链接请用|分隔">
+        </div>
       </div>
       
-      <div class="mb-3">
-        <label for="target" class="form-label">目标格式</label>
-        <select class="form-select" id="target">
-          <option value="clash">Clash</option>
-          <option value="clashr">ClashR</option>
-          <option value="quan">Quantumult</option>
-          <option value="quanx">Quantumult X</option>
-          <option value="loon">Loon</option>
-          <option value="ss">SS (SIP002)</option>
-          <option value="sssub">SS Android</option>
-          <option value="ssr">SSR</option>
-          <option value="ssd">SSD</option>
-          <option value="surfboard">Surfboard</option>
-          <option value="surge&ver=4">Surge 4</option>
-          <option value="surge&ver=3">Surge 3</option>
-          <option value="surge&ver=2">Surge 2</option>
-          <option value="v2ray">V2Ray</option>
-        </select>
+      <div class="form-section">
+        <div class="section-title">目标格式</div>
+        <div class="mb-2">
+          <select class="form-select" id="target">
+            <option value="clash">Clash</option>
+            <option value="clashr">ClashR</option>
+            <option value="quan">Quantumult</option>
+            <option value="quanx">Quantumult X</option>
+            <option value="loon">Loon</option>
+            <option value="ss">SS (SIP002)</option>
+            <option value="sssub">SS Android</option>
+            <option value="ssr">SSR</option>
+            <option value="ssd">SSD</option>
+            <option value="surfboard">Surfboard</option>
+            <option value="surge&ver=4">Surge 4</option>
+            <option value="surge&ver=3">Surge 3</option>
+            <option value="surge&ver=2">Surge 2</option>
+            <option value="v2ray">V2Ray</option>
+          </select>
+        </div>
       </div>
       
-      <div class="mb-3">
-        <label for="config" class="form-label">配置文件</label>
-        <select class="form-select" id="configSelect">
+      <div class="form-section">
+        <div class="section-title">配置文件</div>
+        <div class="mb-2">
+          <select class="form-select" id="configSelect">
+            <!-- 将通过JavaScript填充 -->
+          </select>
+        </div>
+        
+        <div class="mb-2">
+          <div class="section-title">自定义配置链接</div>
+          <input type="text" class="form-control" id="customConfig" placeholder="可选，自定义配置文件链接">
+        </div>
+      </div>
+      
+      <div class="form-section">
+        <div class="section-title">后端服务地址</div>
+        <div class="mb-2">
+          <input type="text" class="form-control" id="backendUrl" placeholder="可选，自定义后端服务地址">
+          <div class="form-text">留空则使用默认后端</div>
+        </div>
+      </div>
+      
+      <div class="form-section">
+        <div class="section-title">功能选项</div>
+        <div class="small text-muted mb-2">勾选表示启用该参数，下拉框选择参数值</div>
+        <div class="options-grid" id="optionsGrid">
           <!-- 将通过JavaScript填充 -->
-        </select>
-      </div>
-      
-      <div class="mb-3">
-        <label for="customConfig" class="form-label">自定义配置链接</label>
-        <input type="text" class="form-control" id="customConfig" placeholder="可选，自定义配置文件链接">
-      </div>
-      
-      <div class="mb-3">
-        <label for="backendUrl" class="form-label">后端服务地址</label>
-        <input type="text" class="form-control" id="backendUrl" placeholder="可选，自定义后端服务地址">
-        <div class="form-text">留空则使用默认后端</div>
-      </div>
-      
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="checkbox" id="emoji" checked>
-        <label class="form-check-label" for="emoji">启用 Emoji</label>
-      </div>
-      
-      <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="newName" checked>
-        <label class="form-check-label" for="newName">使用新命名</label>
+        </div>
+        
+        <div class="d-grid mt-2">
+          <button id="moreOptionsBtn" class="btn more-options-btn">更多选项</button>
+        </div>
       </div>
       
       <div class="d-grid">
@@ -439,17 +603,17 @@ function generateHtmlContent(accessToken) {
       </div>
       
       <div id="result" class="result-card" style="display: none;">
-        <h5>转换结果</h5>
+        <h5 class="mb-2">转换结果</h5>
         <div id="resultUrl" class="result-url"></div>
         <div class="d-grid">
           <button id="copyBtn" class="btn btn-copy">复制链接</button>
         </div>
         <div class="mt-3 alert alert-info">
           <strong>使用说明：</strong>
-          <p>1. 生成的链接可<strong>直接</strong>添加到代理客户端中作为订阅链接</p>
-          <p>2. 链接格式为: <code>https://example.com/sub?target=clash&url=订阅地址&token=访问令牌</code></p>
-          <p>3. 必须包含参数: <code>target</code>(目标格式)、<code>url</code>(订阅地址)和<code>token</code>(访问令牌)</p>
-          <p>4. 如果客户端无法正常使用，请尝试不同的目标格式</p>
+          <p class="mt-2 mb-1">1. 生成的链接可<strong>直接</strong>添加到代理客户端中作为订阅链接</p>
+          <p class="mb-1">2. 链接格式为: <code>https://example.com/sub?target=clash&url=订阅地址&token=访问令牌</code></p>
+          <p class="mb-1">3. 必须包含参数: <code>target</code>(目标格式)、<code>url</code>(订阅地址)和<code>token</code>(访问令牌)</p>
+          <p class="mb-0">4. 如果客户端无法正常使用，请尝试不同的目标格式</p>
         </div>
       </div>
       
@@ -462,6 +626,9 @@ function generateHtmlContent(accessToken) {
   <script>
     // 常用配置文件列表
     const commonConfigs = ${JSON.stringify(COMMON_CONFIGS)};
+    
+    // 功能选项列表
+    const featureOptions = ${JSON.stringify(FEATURE_OPTIONS)};
     
     // 默认后端
     const defaultBackend = '${DEFAULT_BACKEND}';
@@ -481,6 +648,83 @@ function generateHtmlContent(accessToken) {
         option.value = config.value;
         option.textContent = config.name;
         configSelect.appendChild(option);
+      });
+      
+      // 填充功能选项
+      const optionsGrid = document.getElementById('optionsGrid');
+      
+      // 初始只显示部分选项
+      const initialOptions = featureOptions.slice(0, 2);
+      const hiddenOptions = featureOptions.slice(2);
+      let showingAllOptions = false;
+      
+      function renderOptions(options) {
+        options.forEach(option => {
+          const optionDiv = document.createElement('div');
+          optionDiv.className = 'option-item';
+          
+          // 创建勾选框
+          const checkboxDiv = document.createElement('div');
+          checkboxDiv.className = 'option-checkbox';
+          
+          const checkbox = document.createElement('input');
+          checkbox.className = 'form-check-input';
+          checkbox.type = 'checkbox';
+          checkbox.id = 'enable_' + option.param;
+          checkbox.checked = option.default;
+          
+          checkboxDiv.appendChild(checkbox);
+          
+          // 创建标签
+          const label = document.createElement('label');
+          label.className = 'form-check-label';
+          label.htmlFor = 'enable_' + option.param;
+          label.textContent = option.name;
+          
+          // 创建选择框
+          const select = document.createElement('select');
+          select.className = 'form-select form-select-sm option-select';
+          select.id = 'value_' + option.param;
+          
+          const optionTrue = document.createElement('option');
+          optionTrue.value = 'true';
+          optionTrue.textContent = 'true';
+          optionTrue.selected = option.defaultValue === true;
+          
+          const optionFalse = document.createElement('option');
+          optionFalse.value = 'false';
+          optionFalse.textContent = 'false';
+          optionFalse.selected = option.defaultValue === false;
+          
+          select.appendChild(optionTrue);
+          select.appendChild(optionFalse);
+          
+          // 将元素添加到选项div
+          optionDiv.appendChild(checkboxDiv);
+          optionDiv.appendChild(label);
+          optionDiv.appendChild(select);
+          
+          // 将选项div添加到网格
+          optionsGrid.appendChild(optionDiv);
+        });
+      }
+      
+      // 渲染初始选项
+      renderOptions(initialOptions);
+      
+      // 更多选项按钮事件
+      document.getElementById('moreOptionsBtn').addEventListener('click', function() {
+        if (!showingAllOptions) {
+          renderOptions(hiddenOptions);
+          this.textContent = '收起选项';
+        } else {
+          // 移除额外选项
+          while (optionsGrid.children.length > initialOptions.length) {
+            optionsGrid.removeChild(optionsGrid.lastChild);
+          }
+          this.textContent = '更多选项';
+        }
+        showingAllOptions = !showingAllOptions;
       });
       
       // 设置默认后端
@@ -507,8 +751,6 @@ function generateHtmlContent(accessToken) {
         const target = document.getElementById('target').value;
         const config = document.getElementById('customConfig').value.trim();
         const backendUrl = document.getElementById('backendUrl').value.trim() || defaultBackend;
-        const emoji = document.getElementById('emoji').checked;
-        const newName = document.getElementById('newName').checked;
         
         // 构建转换URL - 使用新的直接路由
         let origin = window.location.origin;
@@ -524,13 +766,15 @@ function generateHtmlContent(accessToken) {
           convertUrl += '&config=' + encodeURIComponent(config);
         }
         
-        if (emoji) {
-          convertUrl += '&emoji=true';
-        }
-        
-        if (newName) {
-          convertUrl += '&new_name=true';
-        }
+        // 添加所有选中的功能选项
+        featureOptions.forEach(option => {
+          const enableCheckbox = document.getElementById('enable_' + option.param);
+          if (enableCheckbox && enableCheckbox.checked) {
+            const valueSelect = document.getElementById('value_' + option.param);
+            const paramValue = valueSelect.value;
+            convertUrl += '&' + option.param + '=' + paramValue;
+          }
+        });
         
         if (backendUrl !== defaultBackend) {
           convertUrl += '&backend=' + encodeURIComponent(backendUrl);
@@ -538,6 +782,9 @@ function generateHtmlContent(accessToken) {
         
         document.getElementById('resultUrl').textContent = convertUrl;
         document.getElementById('result').style.display = 'block';
+        
+        // 平滑滚动到结果区域
+        document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
         
         // 验证生成的URL是否包含必要参数
         if (!convertUrl.includes('target=') || !convertUrl.includes('url=')) {
@@ -550,8 +797,18 @@ function generateHtmlContent(accessToken) {
         const resultUrl = document.getElementById('resultUrl').textContent;
         
         navigator.clipboard.writeText(resultUrl).then(function() {
-          alert('链接已复制到剪贴板');
-        }, function(err) {
+          // 显示复制成功的提示，而不是弹窗
+          const originalText = this.textContent;
+          this.textContent = '复制成功!';
+          this.classList.add('btn-success');
+          this.classList.remove('btn-copy');
+          
+          setTimeout(() => {
+            this.textContent = originalText;
+            this.classList.remove('btn-success');
+            this.classList.add('btn-copy');
+          }, 2000);
+        }.bind(this), function(err) {
           console.error('复制失败: ', err);
           
           // 备用复制方法
@@ -561,8 +818,18 @@ function generateHtmlContent(accessToken) {
           textarea.select();
           document.execCommand('copy');
           document.body.removeChild(textarea);
-          alert('链接已复制到剪贴板');
-        });
+          
+          const originalText = this.textContent;
+          this.textContent = '复制成功!';
+          this.classList.add('btn-success');
+          this.classList.remove('btn-copy');
+          
+          setTimeout(() => {
+            this.textContent = originalText;
+            this.classList.remove('btn-success');
+            this.classList.add('btn-copy');
+          }, 2000);
+        }.bind(this));
       });
     });
   </script>
